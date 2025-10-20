@@ -11,7 +11,7 @@ const calcularRangoFechas = (periodo) => {
       fechaInicio.setDate(fechaInicio.getDate() - 7)
       break
     case "mensual":
-      fechaInicio.setMonth(fechaInicio.getMonth() - 1)
+      fechaInicio.setDate(fechaInicio.getDate() - 30)
       break
     case "general":
       return null // No date filter for general
@@ -21,6 +21,8 @@ const calcularRangoFechas = (periodo) => {
 
   fechaInicio.setHours(0, 0, 0, 0)
   fechaFin.setHours(23, 59, 59, 999)
+
+  console.log(`[v0] Periodo: ${periodo}, Fecha Inicio: ${fechaInicio}, Fecha Fin: ${fechaFin}`)
 
   return { fechaInicio, fechaFin }
 }
@@ -36,8 +38,9 @@ const encontrarMejorPruebaPorTipo = (pruebas, tipo) => {
   let mejorPorcentaje = -1
 
   pruebasTipo.forEach((p) => {
-    const intentos = p.cantidad_intentos || 0
     const aciertos = p.cantidad_aciertos || 0
+    const errores = p.cantidad_errores || 0
+    const intentos = p.cantidad_intentos || aciertos + errores
     const porcentaje = intentos > 0 ? (aciertos / intentos) * 100 : 0
 
     if (porcentaje > mejorPorcentaje) {
@@ -48,9 +51,9 @@ const encontrarMejorPruebaPorTipo = (pruebas, tipo) => {
 
   if (!mejorPrueba) return null
 
-  const intentos = mejorPrueba.cantidad_intentos || 0
   const aciertos = mejorPrueba.cantidad_aciertos || 0
   const errores = mejorPrueba.cantidad_errores || 0
+  const intentos = mejorPrueba.cantidad_intentos || aciertos + errores
 
   return {
     id: mejorPrueba.id,
@@ -69,6 +72,8 @@ export const rankingPersonal = async (req, res) => {
     const { cuentaId } = req.params
     const { periodo = "general" } = req.query
 
+    console.log(`[v0] rankingPersonal - cuentaId: ${cuentaId}, periodo: ${periodo}`)
+
     if (!cuentaId) {
       return res.status(400).json({ success: false, message: "El campo cuentaId es requerido" })
     }
@@ -84,7 +89,7 @@ export const rankingPersonal = async (req, res) => {
 
     const pruebas = await Prueba.findAll({
       where: filtros,
-      attributes: { exclude: ["imagen"] }, // Exclude image from pruebas
+      attributes: { exclude: ["imagen"] },
       include: [
         {
           model: Cuenta,
@@ -94,7 +99,7 @@ export const rankingPersonal = async (req, res) => {
             {
               model: Jugador,
               as: "jugador",
-              attributes: { exclude: ["imagen"] }, // Exclude image
+              attributes: { exclude: ["imagen"] },
             },
             {
               model: Entrenador,
@@ -110,6 +115,8 @@ export const rankingPersonal = async (req, res) => {
         },
       ],
     })
+
+    console.log(`[v0] Pruebas encontradas: ${pruebas.length}`)
 
     if (pruebas.length === 0) {
       return res.json({ success: true, data: null })
@@ -139,6 +146,10 @@ export const rankingPersonal = async (req, res) => {
       const errores = p.cantidad_errores || 0
       const intentos = p.cantidad_intentos || aciertos + errores
 
+      console.log(
+        `[v0] Prueba ${p.id} - Tipo: ${tipo}, Aciertos: ${aciertos}, Errores: ${errores}, Intentos: ${intentos}`,
+      )
+
       totalAciertos += aciertos
       totalErrores += errores
       totalIntentos += intentos
@@ -159,15 +170,20 @@ export const rankingPersonal = async (req, res) => {
       }
     })
 
-    // Calcular porcentaje promedio por tipo
     tipos.forEach((tipo) => {
       const r = resumenPorTipo[tipo]
       r.porcentajePromedio = r.totalIntentos > 0 ? ((r.totalAciertos / r.totalIntentos) * 100).toFixed(2) : "0.00"
+      console.log(
+        `[v0] Tipo ${tipo} - Porcentaje: ${r.porcentajePromedio}%, Intentos: ${r.totalIntentos}, Aciertos: ${r.totalAciertos}`,
+      )
     })
+
+    const porcentajePromedioTotal = totalIntentos > 0 ? ((totalAciertos / totalIntentos) * 100).toFixed(2) : "0.00"
+    console.log(`[v0] Porcentaje Promedio Total: ${porcentajePromedioTotal}%`)
 
     const cuenta = pruebas[0].cuenta
 
-    res.json({
+    const response = {
       success: true,
       data: {
         cuentaId: cuenta.id,
@@ -177,13 +193,18 @@ export const rankingPersonal = async (req, res) => {
         totalAciertos,
         totalErrores,
         totalIntentos,
-        porcentajePromedio: totalIntentos > 0 ? ((totalAciertos / totalIntentos) * 100).toFixed(2) : "0.00",
+        porcentajePromedio: porcentajePromedioTotal,
         resumenPorTipo,
-        mejoresPruebasPorTipo, // Added best tests by type
+        mejoresPruebasPorTipo,
         periodo,
       },
-    })
+    }
+
+    console.log("[v0] Response data:", JSON.stringify(response, null, 2))
+
+    res.json(response)
   } catch (error) {
+    console.error("[v0] Error en rankingPersonal:", error)
     res.status(500).json({ success: false, message: "Error en rankingPersonal", error: error.message })
   }
 }

@@ -1,5 +1,10 @@
 // Import necessary models and operators
-const { Prueba, Cuenta, Jugador, Entrenador, Tecnico, Op } = require("../models")
+import { Op } from "sequelize"
+import { Prueba } from "../models/Prueba.js"
+import { Cuenta } from "../models/Cuenta.js"
+import { Jugador } from "../models/Jugador.js"
+import { Entrenador } from "../models/Entrenador.js"
+import { Tecnico } from "../models/Tecnico.js"
 
 // 📌 Función auxiliar para calcular rango de fechas según periodo
 const calcularRangoFechas = (periodo) => {

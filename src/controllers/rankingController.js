@@ -157,7 +157,6 @@ export const rankingPersonal = async (req, res) => {
       })
     }
 
-    // Inicializar acumuladores por tipo
     const tipos = ["secuencial", "aleatorio", "manual"]
     const resumenPorTipo = {}
     tipos.forEach((tipo) => {
@@ -184,12 +183,10 @@ export const rankingPersonal = async (req, res) => {
       const errores = p.cantidad_errores || 0
       const intentos = p.cantidad_intentos || aciertos + errores
 
-      // Totales generales
       totalAciertos += aciertos
       totalErrores += errores
       totalIntentos += intentos
 
-      // Totales por tipo
       if (resumenPorTipo[tipo]) {
         resumenPorTipo[tipo].totalAciertos += aciertos
         resumenPorTipo[tipo].totalErrores += errores

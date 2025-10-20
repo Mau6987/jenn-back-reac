@@ -32,6 +32,45 @@ const calcularRangoFechas = (periodo) => {
   return { fechaInicio, fechaFin }
 }
 
+// 📌 Función auxiliar para encontrar la mejor prueba por tipo
+const encontrarMejorPruebaPorTipo = (pruebas, tipo) => {
+  const pruebasTipo = pruebas.filter((p) => p.tipo === tipo)
+
+  if (pruebasTipo.length === 0) return null
+
+  // Find the test with highest accuracy percentage
+  let mejorPrueba = null
+  let mejorPorcentaje = -1
+
+  pruebasTipo.forEach((p) => {
+    const aciertos = p.cantidad_aciertos || 0
+    const errores = p.cantidad_errores || 0
+    const intentos = p.cantidad_intentos || aciertos + errores
+    const porcentaje = intentos > 0 ? (aciertos / intentos) * 100 : 0
+
+    if (porcentaje > mejorPorcentaje) {
+      mejorPorcentaje = porcentaje
+      mejorPrueba = p
+    }
+  })
+
+  if (!mejorPrueba) return null
+
+  const aciertos = mejorPrueba.cantidad_aciertos || 0
+  const errores = mejorPrueba.cantidad_errores || 0
+  const intentos = mejorPrueba.cantidad_intentos || aciertos + errores
+
+  return {
+    id: mejorPrueba.id,
+    fecha: mejorPrueba.fecha,
+    aciertos,
+    errores,
+    intentos,
+    porcentajeAcierto: mejorPorcentaje.toFixed(2),
+    ejercicios_realizados: mejorPrueba.ejercicios_realizados || 0,
+  }
+}
+
 // 📌 Ranking personal resumido (GET) por cuentaId
 export const rankingPersonal = async (req, res) => {
   try {
@@ -90,7 +129,7 @@ export const rankingPersonal = async (req, res) => {
         totalIntentos: 0,
         porcentajePromedio: "0.00",
         cantidadPruebas: 0,
-        mejorPrueba: null,
+        mejorPrueba: null, // Add best test tracking
       }
     })
 
@@ -161,11 +200,12 @@ export const rankingPersonal = async (req, res) => {
     res.status(500).json({ success: false, message: "Error en rankingPersonal", error: error.message })
   }
 }
-
 // ------------------ Ranking General (Top 10) ------------------
 export const rankingGeneral = async (req, res) => {
   try {
     const { periodo = "general", carrera, posicion } = req.query
+
+    console.log("[v0] rankingGeneral called with:", { periodo, carrera, posicion })
 
     const rangoFechas = calcularRangoFechas(periodo)
 
@@ -179,7 +219,7 @@ export const rankingGeneral = async (req, res) => {
     const jugadorInclude = {
       model: Jugador,
       as: "jugador",
-      attributes: { exclude: ["imagen"] }, // Exclude player image
+      attributes: { exclude: ["imagen"] },
     }
 
     const jugadorWhere = {}
@@ -192,12 +232,11 @@ export const rankingGeneral = async (req, res) => {
 
     if (Object.keys(jugadorWhere).length > 0) {
       jugadorInclude.where = jugadorWhere
-      jugadorInclude.required = true // Only include players that match the filter
+      jugadorInclude.required = true
     }
 
     const pruebas = await Prueba.findAll({
       where: filtros,
-      attributes: { exclude: ["imagen"] },
       include: [
         {
           model: Cuenta,
@@ -220,8 +259,16 @@ export const rankingGeneral = async (req, res) => {
       ],
     })
 
+    console.log("[v0] Found pruebas:", pruebas.length)
+
     if (pruebas.length === 0) {
-      return res.json({ success: true, data: [] })
+      return res.json({
+        success: true,
+        data: [],
+        periodo,
+        carrera: carrera || "general",
+        posicion: posicion || "general",
+      })
     }
 
     const jugadoresMap = {}
@@ -236,11 +283,6 @@ export const rankingGeneral = async (req, res) => {
           totalErrores: 0,
           totalIntentos: 0,
           cantidadPruebas: 0,
-          resumenPorTipo: {
-            secuencial: { totalAciertos: 0, totalErrores: 0, totalIntentos: 0, cantidadPruebas: 0 },
-            aleatorio: { totalAciertos: 0, totalErrores: 0, totalIntentos: 0, cantidadPruebas: 0 },
-            manual: { totalAciertos: 0, totalErrores: 0, totalIntentos: 0, cantidadPruebas: 0 },
-          },
         }
       }
 
@@ -252,29 +294,15 @@ export const rankingGeneral = async (req, res) => {
       jugadoresMap[cuentaId].totalErrores += errores
       jugadoresMap[cuentaId].totalIntentos += intentos
       jugadoresMap[cuentaId].cantidadPruebas += 1
-
-      // Accumulate by type
-      const tipo = p.tipo
-      if (jugadoresMap[cuentaId].resumenPorTipo[tipo]) {
-        jugadoresMap[cuentaId].resumenPorTipo[tipo].totalAciertos += aciertos
-        jugadoresMap[cuentaId].resumenPorTipo[tipo].totalErrores += errores
-        jugadoresMap[cuentaId].resumenPorTipo[tipo].totalIntentos += intentos
-        jugadoresMap[cuentaId].resumenPorTipo[tipo].cantidadPruebas += 1
-      }
     })
 
     const jugadoresArray = Object.values(jugadoresMap).map((j) => {
       const porcentajePromedio = j.totalIntentos > 0 ? ((j.totalAciertos / j.totalIntentos) * 100).toFixed(2) : "0.00"
 
-      // Calculate percentage by type
-      const tipos = ["secuencial", "aleatorio", "manual"]
-      tipos.forEach((tipo) => {
-        const r = j.resumenPorTipo[tipo]
-        r.porcentajePromedio = r.totalIntentos > 0 ? ((r.totalAciertos / r.totalIntentos) * 100).toFixed(2) : "0.00"
-      })
-
       return {
         cuentaId: j.cuenta.id,
+        nombre:
+          `${j.cuenta.jugador?.nombres || j.cuenta.entrenador?.nombres || j.cuenta.tecnico?.nombres || ""} ${j.cuenta.jugador?.apellidos || j.cuenta.entrenador?.apellidos || j.cuenta.tecnico?.apellidos || ""}`.trim(),
         jugador: j.cuenta.jugador || null,
         entrenador: j.cuenta.entrenador || null,
         tecnico: j.cuenta.tecnico || null,
@@ -283,13 +311,17 @@ export const rankingGeneral = async (req, res) => {
         totalIntentos: j.totalIntentos,
         porcentajePromedio,
         cantidadPruebas: j.cantidadPruebas,
-        resumenPorTipo: j.resumenPorTipo,
       }
     })
 
-    const ranking = jugadoresArray.sort(
-      (a, b) => Number.parseFloat(b.porcentajePromedio) - Number.parseFloat(a.porcentajePromedio),
-    )
+    const ranking = jugadoresArray
+      .sort((a, b) => Number.parseFloat(b.porcentajePromedio) - Number.parseFloat(a.porcentajePromedio))
+      .map((jugador, index) => ({
+        ...jugador,
+        posicion: index + 1,
+      }))
+
+    console.log("[v0] Ranking generated with", ranking.length, "players")
 
     res.json({
       success: true,
@@ -299,6 +331,188 @@ export const rankingGeneral = async (req, res) => {
       posicion: posicion || "general",
     })
   } catch (error) {
+    console.error("[v0] Error in rankingGeneral:", error)
     res.status(500).json({ success: false, message: "Error en rankingGeneral", error: error.message })
+  }
+}
+
+// ------------------ Ranking Personal Filtrado ------------------
+export const rankingPersonalFiltrado = async (req, res) => {
+  try {
+    const { cuentaId, fechaInicio, fechaFin, tipos } = req.body
+
+    if (!cuentaId) {
+      return res.status(400).json({ success: false, message: "El campo cuentaId es requerido" })
+    }
+
+    const tiposFiltro =
+      tipos && Array.isArray(tipos) && tipos.length > 0 ? tipos : ["secuencial", "aleatorio", "manual"]
+
+    const filtros = {
+      cuentaId,
+      estado: "finalizada",
+      tipo: { [Op.in]: tiposFiltro },
+    }
+
+    if (fechaInicio && fechaFin) {
+      const inicio = new Date(fechaInicio)
+      inicio.setHours(0, 0, 0, 0)
+
+      const fin = new Date(fechaFin)
+      fin.setHours(23, 59, 59, 999)
+
+      filtros.fecha = { [Op.between]: [inicio, fin] }
+    }
+
+    const pruebas = await Prueba.findAll({
+      where: filtros,
+      attributes: { exclude: ["imagen"] }, // Exclude image
+      include: [
+        {
+          model: Cuenta,
+          as: "cuenta",
+          attributes: ["id", "nombre", "rol"],
+          include: [
+            {
+              model: Jugador,
+              as: "jugador",
+              attributes: { exclude: ["imagen"] },
+            },
+            {
+              model: Entrenador,
+              as: "entrenador",
+              attributes: { exclude: ["imagen"] },
+            },
+            {
+              model: Tecnico,
+              as: "tecnico",
+              attributes: { exclude: ["imagen"] },
+            },
+          ],
+        },
+      ],
+    })
+
+    if (pruebas.length === 0) {
+      return res.json({ success: true, data: null })
+    }
+
+    const resumenPorTipo = {}
+    tiposFiltro.forEach((tipo) => {
+      const pruebasTipo = pruebas.filter((p) => p.tipo === tipo)
+      if (pruebasTipo.length === 0) return
+
+      let totalAciertos = 0
+      let totalErrores = 0
+      let totalIntentos = 0
+
+      pruebasTipo.forEach((p) => {
+        const aciertos = p.cantidad_aciertos || 0
+        const errores = p.cantidad_errores || 0
+        const intentos = p.cantidad_intentos || aciertos + errores
+
+        totalAciertos += aciertos
+        totalErrores += errores
+        totalIntentos += intentos
+      })
+
+      resumenPorTipo[tipo] = {
+        tipo,
+        cuenta: pruebasTipo[0].cuenta,
+        totalAciertos,
+        totalErrores,
+        totalIntentos,
+        porcentajePromedio: totalIntentos > 0 ? ((totalAciertos / totalIntentos) * 100).toFixed(2) : "0.00",
+        cantidadPruebas: pruebasTipo.length,
+      }
+    })
+
+    res.json({ success: true, data: resumenPorTipo })
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error en rankingPersonalFiltrado", error: error.message })
+  }
+}
+
+// ------------------ Ranking General Filtrado ------------------
+export const rankingGeneralFiltrado = async (req, res) => {
+  try {
+    const { fechaInicio, fechaFin, tipo, top } = req.body
+
+    const filtros = { estado: "finalizada" }
+
+    if (fechaInicio && fechaFin) {
+      filtros.fecha = { [Op.between]: [new Date(fechaInicio), new Date(fechaFin)] }
+    } else {
+      const defFin = new Date()
+      const defInicio = new Date()
+      defInicio.setMonth(defInicio.getMonth() - 1)
+      filtros.fecha = { [Op.between]: [defInicio, defFin] }
+    }
+
+    if (tipo) filtros.tipo = tipo
+
+    const pruebas = await Prueba.findAll({
+      where: filtros,
+      attributes: { exclude: ["imagen"] }, // Exclude image
+      include: [
+        {
+          model: Cuenta,
+          as: "cuenta",
+          attributes: ["id", "nombre", "rol"],
+          include: [
+            {
+              model: Jugador,
+              as: "jugador",
+              attributes: { exclude: ["imagen"] },
+            },
+            {
+              model: Entrenador,
+              as: "entrenador",
+              attributes: { exclude: ["imagen"] },
+            },
+            {
+              model: Tecnico,
+              as: "tecnico",
+              attributes: { exclude: ["imagen"] },
+            },
+          ],
+        },
+      ],
+    })
+
+    let resultados = pruebas
+      .map((prueba) => {
+        const intentos = prueba.cantidad_intentos || 0
+        const aciertos = prueba.cantidad_aciertos || 0
+        const errores = prueba.cantidad_errores || 0
+
+        const porcentajeAcierto = intentos > 0 ? (aciertos / intentos) * 100 : 0
+
+        return {
+          id: prueba.id,
+          tipo: prueba.tipo,
+          cuentaId: prueba.cuentaId,
+          aciertos,
+          errores,
+          intentos,
+          porcentajeAcierto: porcentajeAcierto.toFixed(2),
+          ejercicios_realizados: prueba.ejercicios_realizados || 0,
+          fecha: prueba.fecha,
+          cuenta: {
+            id: prueba.cuenta.id,
+            nombre: prueba.cuenta.nombre,
+            jugador: prueba.cuenta.jugador || null,
+            entrenador: prueba.cuenta.entrenador || null,
+            tecnico: prueba.cuenta.tecnico || null,
+          },
+        }
+      })
+      .sort((a, b) => b.porcentajeAcierto - a.porcentajeAcierto)
+
+    if (top) resultados = resultados.slice(0, top)
+
+    res.json({ success: true, data: resultados })
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error en rankingGeneralFiltrado", error: error.message })
   }
 }

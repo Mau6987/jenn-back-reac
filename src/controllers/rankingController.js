@@ -279,13 +279,12 @@ export const rankingPersonal = async (req, res) => {
 // ------------------ Ranking General (Top 10) ------------------
 export const rankingGeneral = async (req, res) => {
   try {
-    const { periodo = "general", carrera, posicion } = req.query
+    const { periodo = "general", carrera, posicion, idUser } = req.query
 
-    console.log("[v0] rankingGeneral called with:", { periodo, carrera, posicion })
+    console.log("[v0] rankingGeneral called with:", { periodo, carrera, posicion, idUser })
 
     const rangoFechas = calcularRangoFechas(periodo)
 
-    // Filtro base
     const filtros = { estado: "finalizada" }
 
     if (rangoFechas) {
@@ -295,7 +294,7 @@ export const rankingGeneral = async (req, res) => {
     const jugadorInclude = {
       model: Jugador,
       as: "jugador",
-      attributes: { exclude: ["imagen"] },
+      attributes: ["id", "nombres", "apellidos", "carrera", "posicion_principal", "imagen"], // Include imagen
     }
 
     const jugadorWhere = {}
@@ -323,12 +322,12 @@ export const rankingGeneral = async (req, res) => {
             {
               model: Entrenador,
               as: "entrenador",
-              attributes: { exclude: ["imagen"] },
+              attributes: ["id", "nombres", "apellidos", "imagen"], // Include imagen
             },
             {
               model: Tecnico,
               as: "tecnico",
-              attributes: { exclude: ["imagen"] },
+              attributes: ["id", "nombres", "apellidos", "imagen"], // Include imagen
             },
           ],
         },
@@ -341,6 +340,7 @@ export const rankingGeneral = async (req, res) => {
       return res.json({
         success: true,
         data: [],
+        userPosition: null,
         periodo,
         carrera: carrera || "general",
         posicion: posicion || "general",
@@ -379,6 +379,7 @@ export const rankingGeneral = async (req, res) => {
         cuentaId: j.cuenta.id,
         nombre:
           `${j.cuenta.jugador?.nombres || j.cuenta.entrenador?.nombres || j.cuenta.tecnico?.nombres || ""} ${j.cuenta.jugador?.apellidos || j.cuenta.entrenador?.apellidos || j.cuenta.tecnico?.apellidos || ""}`.trim(),
+        imagen: j.cuenta.jugador?.imagen || j.cuenta.entrenador?.imagen || j.cuenta.tecnico?.imagen || null, // Include imagen
         jugador: j.cuenta.jugador || null,
         entrenador: j.cuenta.entrenador || null,
         tecnico: j.cuenta.tecnico || null,
@@ -397,11 +398,19 @@ export const rankingGeneral = async (req, res) => {
         posicion: index + 1,
       }))
 
-    console.log("[v0] Ranking generated with", ranking.length, "players")
+    const top5 = ranking.slice(0, 5)
+
+    let userPosition = null
+    if (idUser) {
+      userPosition = ranking.find((player) => player.cuentaId === Number.parseInt(idUser))
+    }
+
+    console.log("[v0] Ranking generated with", ranking.length, "players, returning top 5")
 
     res.json({
       success: true,
-      data: ranking,
+      data: top5,
+      userPosition,
       periodo,
       carrera: carrera || "general",
       posicion: posicion || "general",
@@ -590,5 +599,139 @@ export const rankingGeneralFiltrado = async (req, res) => {
     res.json({ success: true, data: resultados })
   } catch (error) {
     res.status(500).json({ success: false, message: "Error en rankingGeneralFiltrado", error: error.message })
+  }
+}
+
+// ------------------ Detalles de Jugador ------------------
+export const detallesJugador = async (req, res) => {
+  try {
+    const { cuentaId } = req.params
+    const { periodo = "general" } = req.query
+
+    console.log("[v0] detallesJugador called with:", { cuentaId, periodo })
+
+    if (!cuentaId) {
+      return res.status(400).json({ success: false, message: "El campo cuentaId es requerido" })
+    }
+
+    const rangoFechas = calcularRangoFechas(periodo)
+
+    const filtros = { cuentaId, estado: "finalizada" }
+
+    if (rangoFechas) {
+      filtros.fecha = { [Op.between]: [rangoFechas.fechaInicio, rangoFechas.fechaFin] }
+    }
+
+    const pruebas = await Prueba.findAll({
+      where: filtros,
+      include: [
+        {
+          model: Cuenta,
+          as: "cuenta",
+          attributes: ["id", "usuario", "rol"],
+          include: [
+            {
+              model: Jugador,
+              as: "jugador",
+              attributes: ["id", "nombres", "apellidos", "carrera", "posicion_principal", "imagen"],
+            },
+            {
+              model: Entrenador,
+              as: "entrenador",
+              attributes: ["id", "nombres", "apellidos", "imagen"],
+            },
+            {
+              model: Tecnico,
+              as: "tecnico",
+              attributes: ["id", "nombres", "apellidos", "imagen"],
+            },
+          ],
+        },
+      ],
+    })
+
+    if (pruebas.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          cuentaId,
+          nombre: "Jugador no encontrado",
+          imagen: null,
+          totalAciertos: 0,
+          totalErrores: 0,
+          totalIntentos: 0,
+          porcentajePromedio: "0.00",
+          cantidadPruebas: 0,
+          resumenPorTipo: {
+            secuencial: { totalIntentos: 0, totalAciertos: 0, totalErrores: 0, porcentajePromedio: "0.00" },
+            aleatorio: { totalIntentos: 0, totalAciertos: 0, totalErrores: 0, porcentajePromedio: "0.00" },
+            manual: { totalIntentos: 0, totalAciertos: 0, totalErrores: 0, porcentajePromedio: "0.00" },
+          },
+        },
+      })
+    }
+
+    const cuenta = pruebas[0].cuenta
+    const nombre =
+      `${cuenta.jugador?.nombres || cuenta.entrenador?.nombres || cuenta.tecnico?.nombres || ""} ${cuenta.jugador?.apellidos || cuenta.entrenador?.apellidos || cuenta.tecnico?.apellidos || ""}`.trim()
+    const imagen = cuenta.jugador?.imagen || cuenta.entrenador?.imagen || cuenta.tecnico?.imagen || null
+
+    const tipos = ["secuencial", "aleatorio", "manual"]
+    const resumenPorTipo = {}
+    tipos.forEach((tipo) => {
+      resumenPorTipo[tipo] = {
+        totalAciertos: 0,
+        totalErrores: 0,
+        totalIntentos: 0,
+        porcentajePromedio: "0.00",
+      }
+    })
+
+    let totalAciertos = 0,
+      totalErrores = 0,
+      totalIntentos = 0
+
+    pruebas.forEach((p) => {
+      const tipo = p.tipo
+      const aciertos = p.cantidad_aciertos || 0
+      const errores = p.cantidad_errores || 0
+      const intentos = p.cantidad_intentos || aciertos + errores
+
+      totalAciertos += aciertos
+      totalErrores += errores
+      totalIntentos += intentos
+
+      if (resumenPorTipo[tipo]) {
+        resumenPorTipo[tipo].totalAciertos += aciertos
+        resumenPorTipo[tipo].totalErrores += errores
+        resumenPorTipo[tipo].totalIntentos += intentos
+      }
+    })
+
+    tipos.forEach((tipo) => {
+      const r = resumenPorTipo[tipo]
+      r.porcentajePromedio = r.totalIntentos > 0 ? ((r.totalAciertos / r.totalIntentos) * 100).toFixed(2) : "0.00"
+    })
+
+    res.json({
+      success: true,
+      data: {
+        cuentaId: cuenta.id,
+        nombre,
+        imagen,
+        jugador: cuenta.jugador || null,
+        entrenador: cuenta.entrenador || null,
+        tecnico: cuenta.tecnico || null,
+        totalAciertos,
+        totalErrores,
+        totalIntentos,
+        porcentajePromedio: totalIntentos > 0 ? ((totalAciertos / totalIntentos) * 100).toFixed(2) : "0.00",
+        cantidadPruebas: pruebas.length,
+        resumenPorTipo,
+      },
+    })
+  } catch (error) {
+    console.error("[v0] Error in detallesJugador:", error)
+    res.status(500).json({ success: false, message: "Error en detallesJugador", error: error.message })
   }
 }

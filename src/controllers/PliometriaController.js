@@ -1,4 +1,4 @@
-// controllers/pliometriaActualizadaController.js
+// controllers/pliometriaController.js
 import { Pliometria } from "../models/Pliometria.js"
 import { Cuenta } from "../models/Cuenta.js"
 import { Jugador } from "../models/Jugador.js"
@@ -8,13 +8,17 @@ import { Tecnico } from "../models/Tecnico.js"
 // Iniciar pliometría
 export const iniciarPliometria = async (req, res) => {
   try {
-    const { cuentaId, movimiento } = req.body
-    if (!cuentaId || !movimiento)
-      return res.status(400).json({ success: false, message: "cuentaId y movimiento son requeridos" })
+    const { cuentaId, tipo } = req.body
+    if (!cuentaId || !tipo)
+      return res.status(400).json({ success: false, message: "cuentaId y tipo son requeridos" })
+
+    const TIPOS = ["salto cajon", "salto simple", "salto valla"]
+    if (!TIPOS.includes(tipo))
+      return res.status(400).json({ success: false, message: `tipo inválido. Permitidos: ${TIPOS.join(", ")}` })
 
     const nuevaPliometria = await Pliometria.create({
       cuentaId,
-      movimiento,
+      tipo,
       fuerzaizquierda: 0,
       fuerzaderecha: 0,
       aceleracion: 0,
@@ -30,7 +34,7 @@ export const iniciarPliometria = async (req, res) => {
   }
 }
 
-// Finalizar pliometría
+// Finalizar pliometría (sin cambios de campos)
 export const finalizarPliometria = async (req, res) => {
   try {
     const { id } = req.params
@@ -54,96 +58,86 @@ export const finalizarPliometria = async (req, res) => {
   }
 }
 
-// Obtener todas las pliometrías finalizadas
+// Listados: incluir `tipo` y eliminar `movimiento`
 export const obtenerPliometrias = async (req, res) => {
   try {
     const pliometrias = await Pliometria.findAll({
       where: { estado: "finalizada" },
-      include: [
-        {
-          model: Cuenta,
-          as: "cuenta",
-          attributes: { exclude: ["contraseña", "token"] },
-          include: [
-            { model: Jugador, as: "jugador", attributes: ["nombres", "apellidos"] },
-            { model: Entrenador, as: "entrenador", attributes: ["nombres", "apellidos"] },
-            { model: Tecnico, as: "tecnico", attributes: ["nombres", "apellidos"] },
-          ],
-        },
-      ],
+      include: [{
+        model: Cuenta, as: "cuenta", attributes: { exclude: ["contraseña", "token"] },
+        include: [
+          { model: Jugador, as: "jugador", attributes: ["nombres", "apellidos"] },
+          { model: Entrenador, as: "entrenador", attributes: ["nombres", "apellidos"] },
+          { model: Tecnico, as: "tecnico", attributes: ["nombres", "apellidos"] },
+        ],
+      }],
       order: [["fecha", "DESC"]],
     })
 
-    const pliometriasFormateadas = pliometrias.map((plio) => {
+    const data = pliometrias.map((plio) => {
       const nombre =
         plio.cuenta.rol === "jugador"
-          ? `${plio.cuenta.jugador.nombres} ${plio.cuenta.jugador.apellidos}`
+          ? `${plio.cuenta.jugador?.nombres ?? ""} ${plio.cuenta.jugador?.apellidos ?? ""}`.trim()
           : plio.cuenta.rol === "entrenador"
-            ? `${plio.cuenta.entrenador.nombres} ${plio.cuenta.entrenador.apellidos}`
-            : `${plio.cuenta.tecnico.nombres} ${plio.cuenta.tecnico.apellidos}`
+            ? `${plio.cuenta.entrenador?.nombres ?? ""} ${plio.cuenta.entrenador?.apellidos ?? ""}`.trim()
+            : `${plio.cuenta.tecnico?.nombres ?? ""} ${plio.cuenta.tecnico?.apellidos ?? ""}`.trim()
 
       return {
         id: plio.id,
+        tipo: plio.tipo,
         fuerzaizquierda: plio.fuerzaizquierda,
         fuerzaderecha: plio.fuerzaderecha,
         aceleracion: plio.aceleracion,
         potencia: plio.potencia,
-        movimiento: plio.movimiento,
         fecha: plio.fecha,
         jugador: nombre,
       }
     })
 
-    res.json({ success: true, data: pliometriasFormateadas })
+    res.json({ success: true, data })
   } catch (error) {
     console.error(error)
     res.status(500).json({ success: false, message: "Error al obtener pliometrías", error: error.message })
   }
 }
 
-// Obtener pliometrías por usuario
 export const obtenerPliometriasPorUsuario = async (req, res) => {
   try {
     const { cuentaId } = req.params
-
     const pliometrias = await Pliometria.findAll({
       where: { cuentaId, estado: "finalizada" },
-      include: [
-        {
-          model: Cuenta,
-          as: "cuenta",
-          attributes: { exclude: ["contraseña", "token"] },
-          include: [
-            { model: Jugador, as: "jugador", attributes: ["nombres", "apellidos"] },
-            { model: Entrenador, as: "entrenador", attributes: ["nombres", "apellidos"] },
-            { model: Tecnico, as: "tecnico", attributes: ["nombres", "apellidos"] },
-          ],
-        },
-      ],
+      include: [{
+        model: Cuenta, as: "cuenta", attributes: { exclude: ["contraseña", "token"] },
+        include: [
+          { model: Jugador, as: "jugador", attributes: ["nombres", "apellidos"] },
+          { model: Entrenador, as: "entrenador", attributes: ["nombres", "apellidos"] },
+          { model: Tecnico, as: "tecnico", attributes: ["nombres", "apellidos"] },
+        ],
+      }],
       order: [["fecha", "DESC"]],
     })
 
-    const pliometriasFormateadas = pliometrias.map((plio) => {
+    const data = pliometrias.map((plio) => {
       const nombre =
         plio.cuenta.rol === "jugador"
-          ? `${plio.cuenta.jugador.nombres} ${plio.cuenta.jugador.apellidos}`
+          ? `${plio.cuenta.jugador?.nombres ?? ""} ${plio.cuenta.jugador?.apellidos ?? ""}`.trim()
           : plio.cuenta.rol === "entrenador"
-            ? `${plio.cuenta.entrenador.nombres} ${plio.cuenta.entrenador.apellidos}`
-            : `${plio.cuenta.tecnico.nombres} ${plio.cuenta.tecnico.apellidos}`
+            ? `${plio.cuenta.entrenador?.nombres ?? ""} ${plio.cuenta.entrenador?.apellidos ?? ""}`.trim()
+            : `${plio.cuenta.tecnico?.nombres ?? ""} ${plio.cuenta.tecnico?.apellidos ?? ""}`.trim()
 
       return {
         id: plio.id,
+        tipo: plio.tipo,
         fuerzaizquierda: plio.fuerzaizquierda,
         fuerzaderecha: plio.fuerzaderecha,
         aceleracion: plio.aceleracion,
         potencia: plio.potencia,
-        movimiento: plio.movimiento,
         fecha: plio.fecha,
         jugador: nombre,
       }
     })
 
-    res.json({ success: true, data: pliometriasFormateadas })
+    res.json({ success: true, data })
   } catch (error) {
     console.error(error)
     res.status(500).json({ success: false, message: "Error al obtener pliometrías por usuario", error: error.message })

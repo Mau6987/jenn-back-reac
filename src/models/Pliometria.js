@@ -1,4 +1,4 @@
-// models/PliometriaActualizada.js
+// models/Pliometria.js
 import { DataTypes } from "sequelize"
 import { sequelize } from "../config/database.js"
 
@@ -14,6 +14,11 @@ export const Pliometria = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: { model: "cuentas", key: "id" },
+    },
+    // NUEVO: tipo de pliometría
+    tipo: {
+      type: DataTypes.ENUM("salto cajon", "salto simple", "salto valla"),
+      allowNull: false,
     },
     fuerzaizquierda: {
       type: DataTypes.FLOAT,
@@ -36,10 +41,6 @@ export const Pliometria = sequelize.define(
       allowNull: false,
       defaultValue: 0,
       validate: { min: 0 },
-    },
-    movimiento: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
     },
     estado: {
       type: DataTypes.ENUM("pendiente", "en_curso", "finalizada"),

@@ -1,9 +1,9 @@
-// models/PliometriaActualizada.js
+// models/Alcance.js
 import { DataTypes } from "sequelize"
 import { sequelize } from "../config/database.js"
 
-export const Pliometria = sequelize.define(
-  "pliometrias",
+export const Alcance = sequelize.define(
+  "alcances",
   {
     id: {
       type: DataTypes.INTEGER,
@@ -15,33 +15,39 @@ export const Pliometria = sequelize.define(
       allowNull: false,
       references: { model: "cuentas", key: "id" },
     },
-    fuerzaizquierda: {
+    tiempodevuelo: {
       type: DataTypes.FLOAT,
       allowNull: false,
       validate: { min: 0 },
     },
-    fuerzaderecha: {
+    potencia: {
       type: DataTypes.FLOAT,
       allowNull: false,
       validate: { min: 0 },
     },
-    movimiento: {
-      type: DataTypes.STRING(100),
+    velocidad: {
+      type: DataTypes.FLOAT,
       allowNull: false,
+      validate: { min: 0 },
     },
-    estado: {
-      type: DataTypes.ENUM("pendiente", "en_curso", "finalizada"),
+    alcance: {
+      type: DataTypes.FLOAT,
       allowNull: false,
-      defaultValue: "pendiente",
+      validate: { min: 0 },
     },
     fecha: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
     },
+    estado: {
+      type: DataTypes.ENUM("pendiente", "en_curso", "finalizada"),
+      allowNull: false,
+      defaultValue: "pendiente",
+    },
   },
   {
-    tableName: "pliometrias",
+    tableName: "alcances",
     timestamps: false,
   },
 )

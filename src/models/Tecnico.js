@@ -1,6 +1,6 @@
 // models/Tecnico.js
-import { DataTypes } from "sequelize";
-import { sequelize } from "../config/database.js";
+import { DataTypes } from "sequelize"
+import { sequelize } from "../config/database.js"
 
 export const Tecnico = sequelize.define(
   "tecnicos",
@@ -39,6 +39,10 @@ export const Tecnico = sequelize.define(
       allowNull: false,
       validate: { len: [8, 15], isNumeric: true },
     },
+    imagen: {
+      type: DataTypes.BLOB("long"),
+      allowNull: true,
+    },
     cuentaId: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -48,5 +52,5 @@ export const Tecnico = sequelize.define(
   {
     tableName: "tecnicos",
     timestamps: false,
-  }
-);
+  },
+)

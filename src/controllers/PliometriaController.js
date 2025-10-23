@@ -1,106 +1,158 @@
-// controllers/PliometriaController.js
-import { Pliometria, Cuenta } from "../models/index.js";
+// controllers/pliometriaActualizadaController.js
+import { Pliometria } from "../models/Pliometria.js"
+import { Cuenta } from "../models/Cuenta.js"
+import { Jugador } from "../models/Jugador.js"
+import { Entrenador } from "../models/Entrenador.js"
+import { Tecnico } from "../models/Tecnico.js"
 
-// Crear nuevo registro de pliometría
-export const crearPliometria = async (req, res) => {
-  try {
-    const { cuentaId, fecha, tipo_de_ejercicio, tiempo_ejecucion, aceleracion, extension_pierna_izq, extension_pierna_der } = req.body;
-    const registro = await Pliometria.create({
-      cuentaId,
-      fecha,
-      tipo_de_ejercicio,
-      tiempo_ejecucion,
-      aceleracion,
-      extension_pierna_izq,
-      extension_pierna_der
-    });
-    res.status(201).json({ success: true, message: "Registro creado exitosamente", data: registro });
-  } catch (error) {
-    res.status(400).json({ success: false, message: "Error al crear registro", error: error.message });
-  }
-};
-
-// Iniciar plegometría (crea con datos por defecto)
+// Iniciar pliometría
 export const iniciarPliometria = async (req, res) => {
   try {
-    const { cuentaId, tipo_de_ejercicio } = req.body;
-    const registro = await Pliometria.create({
-      cuentaId,
-      fecha: new Date(),
-      tipo_de_ejercicio,
-      tiempo_ejecucion: 0,
-      aceleracion: 0,
-      extension_pierna_izq: 0,
-      extension_pierna_der: 0
-    });
-    res.status(201).json({ success: true, message: "Pliometría iniciada", data: registro });
-  } catch (error) {
-    res.status(400).json({ success: false, message: "Error al iniciar pliometría", error: error.message });
-  }
-};
+    const { cuentaId, movimiento } = req.body
+    if (!cuentaId || !movimiento)
+      return res.status(400).json({ success: false, message: "cuentaId y movimiento son requeridos" })
 
-// Finalizar pliometría (actualiza los valores finales)
+    const nuevaPliometria = await PliometriaActualizada.create({
+      cuentaId,
+      movimiento,
+      fuerzaizquierda: 0,
+      fuerzaderecha: 0,
+      fecha: new Date(),
+      estado: "en_curso",
+    })
+
+    res.json({ success: true, data: nuevaPliometria, message: "Pliometría iniciada" })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ success: false, message: "Error al iniciar pliometría", error: error.message })
+  }
+}
+
+// Finalizar pliometría
 export const finalizarPliometria = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { tiempo_ejecucion, aceleracion, extension_pierna_izq, extension_pierna_der } = req.body;
-    const registro = await Pliometria.findByPk(id);
-    if (!registro) return res.status(404).json({ success: false, message: "Registro no encontrado" });
-    await registro.update({ tiempo_ejecucion, aceleracion, extension_pierna_izq, extension_pierna_der });
-    res.json({ success: true, message: "Pliometría finalizada", data: registro });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Error al finalizar pliometría", error: error.message });
-  }
-};
+    const { id } = req.params
+    const { fuerzaizquierda, fuerzaderecha } = req.body
 
-// Obtener todos los registros de pliometría
+    const pliometria = await PliometriaActualizada.findByPk(id)
+    if (!pliometria) return res.status(404).json({ success: false, message: "Pliometría no encontrada" })
+
+    await pliometria.update({
+      fuerzaizquierda,
+      fuerzaderecha,
+      estado: "finalizada",
+    })
+
+    res.json({ success: true, data: pliometria, message: "Pliometría finalizada correctamente" })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ success: false, message: "Error al finalizar pliometría", error: error.message })
+  }
+}
+
+// Obtener todas las pliometrías finalizadas
 export const obtenerPliometrias = async (req, res) => {
   try {
-    const registros = await Pliometria.findAll({
-      include: [{ model: Cuenta, as: "cuenta", attributes: ["id", "usuario"] }]
-    });
-    res.json({ success: true, data: registros });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Error interno del servidor", error: error.message });
-  }
-};
+    const pliometrias = await PliometriaActualizada.findAll({
+      where: { estado: "finalizada" },
+      include: [
+        {
+          model: Cuenta,
+          as: "cuenta",
+          attributes: { exclude: ["contraseña", "token"] },
+          include: [
+            { model: Jugador, as: "jugador", attributes: ["nombres", "apellidos"] },
+            { model: Entrenador, as: "entrenador", attributes: ["nombres", "apellidos"] },
+            { model: Tecnico, as: "tecnico", attributes: ["nombres", "apellidos"] },
+          ],
+        },
+      ],
+      order: [["fecha", "DESC"]],
+    })
 
-// Obtener un registro de pliometría por ID
-export const obtenerPliometria = async (req, res) => {
+    const pliometriasFormateadas = pliometrias.map((plio) => {
+      const nombre =
+        plio.cuenta.rol === "jugador"
+          ? `${plio.cuenta.jugador.nombres} ${plio.cuenta.jugador.apellidos}`
+          : plio.cuenta.rol === "entrenador"
+            ? `${plio.cuenta.entrenador.nombres} ${plio.cuenta.entrenador.apellidos}`
+            : `${plio.cuenta.tecnico.nombres} ${plio.cuenta.tecnico.apellidos}`
+
+      return {
+        id: plio.id,
+        fuerzaizquierda: plio.fuerzaizquierda,
+        fuerzaderecha: plio.fuerzaderecha,
+        movimiento: plio.movimiento,
+        fecha: plio.fecha,
+        jugador: nombre,
+      }
+    })
+
+    res.json({ success: true, data: pliometriasFormateadas })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ success: false, message: "Error al obtener pliometrías", error: error.message })
+  }
+}
+
+// Obtener pliometrías por usuario
+export const obtenerPliometriasPorUsuario = async (req, res) => {
   try {
-    const { id } = req.params;
-    const registro = await Pliometria.findByPk(id, {
-      include: [{ model: Cuenta, as: "cuenta", attributes: ["id", "usuario"] }]
-    });
-    if (!registro) return res.status(404).json({ success: false, message: "Registro no encontrado" });
-    res.json({ success: true, data: registro });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Error interno del servidor", error: error.message });
-  }
-};
+    const { cuentaId } = req.params
 
-// Actualizar un registro de pliometría
-export const actualizarPliometria = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const registro = await Pliometria.findByPk(id);
-    if (!registro) return res.status(404).json({ success: false, message: "Registro no encontrado" });
-    await registro.update(req.body);
-    res.json({ success: true, message: "Registro actualizado exitosamente", data: registro });
-  } catch (error) {
-    res.status(400).json({ success: false, message: "Error al actualizar registro", error: error.message });
-  }
-};
+    const pliometrias = await PliometriaActualizada.findAll({
+      where: { cuentaId, estado: "finalizada" },
+      include: [
+        {
+          model: Cuenta,
+          as: "cuenta",
+          attributes: { exclude: ["contraseña", "token"] },
+          include: [
+            { model: Jugador, as: "jugador", attributes: ["nombres", "apellidos"] },
+            { model: Entrenador, as: "entrenador", attributes: ["nombres", "apellidos"] },
+            { model: Tecnico, as: "tecnico", attributes: ["nombres", "apellidos"] },
+          ],
+        },
+      ],
+      order: [["fecha", "DESC"]],
+    })
 
-// Eliminar un registro de pliometría
+    const pliometriasFormateadas = pliometrias.map((plio) => {
+      const nombre =
+        plio.cuenta.rol === "jugador"
+          ? `${plio.cuenta.jugador.nombres} ${plio.cuenta.jugador.apellidos}`
+          : plio.cuenta.rol === "entrenador"
+            ? `${plio.cuenta.entrenador.nombres} ${plio.cuenta.entrenador.apellidos}`
+            : `${plio.cuenta.tecnico.nombres} ${plio.cuenta.tecnico.apellidos}`
+
+      return {
+        id: plio.id,
+        fuerzaizquierda: plio.fuerzaizquierda,
+        fuerzaderecha: plio.fuerzaderecha,
+        movimiento: plio.movimiento,
+        fecha: plio.fecha,
+        jugador: nombre,
+      }
+    })
+
+    res.json({ success: true, data: pliometriasFormateadas })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ success: false, message: "Error al obtener pliometrías por usuario", error: error.message })
+  }
+}
+
+// Eliminar pliometría
 export const eliminarPliometria = async (req, res) => {
   try {
-    const { id } = req.params;
-    const registro = await Pliometria.findByPk(id);
-    if (!registro) return res.status(404).json({ success: false, message: "Registro no encontrado" });
-    await registro.destroy();
-    res.json({ success: true, message: "Registro eliminado exitosamente" });
+    const { id } = req.params
+    const pliometria = await PliometriaActualizada.findByPk(id)
+    if (!pliometria) return res.status(404).json({ success: false, message: "Pliometría no encontrada" })
+
+    await pliometria.destroy()
+    res.json({ success: true, message: "Pliometría eliminada correctamente" })
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error interno del servidor", error: error.message });
+    console.error(error)
+    res.status(500).json({ success: false, message: "Error al eliminar pliometría", error: error.message })
   }
-};
+}

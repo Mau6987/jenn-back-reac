@@ -1,23 +1,31 @@
-import { Buffer } from "buffer";
-import { Entrenador, Cuenta } from "../models/index.js";
+import { Entrenador } from "../models/Entrenador.js"
+import { Cuenta } from "../models/Cuenta.js"
 
-const validarImagenBase64 = (imagen) => {
-  if (!imagen) return true;
+// Función auxiliar para validar imagen base64
+const validarImagenBase64 = (imagenBase64) => {
+  if (!imagenBase64) return null
 
-  const base64Pattern = /^data:image\/(png|jpg|jpeg|gif|webp);base64,/;
-  if (!base64Pattern.test(imagen)) {
-    return false;
+  // Verificar formato base64
+  const base64Regex = /^data:image\/(png|jpg|jpeg|gif|webp);base64,/
+  if (!base64Regex.test(imagenBase64)) {
+    throw new Error("Formato de imagen inválido. Debe ser base64 con prefijo data:image/")
   }
 
-  const sizeInBytes = (imagen.length * 3) / 4;
-  const maxSize = 5 * 1024 * 1024; // 5MB
+  // Extraer el contenido base64 sin el prefijo
+  const base64Data = imagenBase64.split(",")[1]
+
+  // Verificar tamaño (máximo 5MB)
+  const sizeInBytes = (base64Data.length * 3) / 4
+  const maxSize = 5 * 1024 * 1024 // 5MB
+
   if (sizeInBytes > maxSize) {
-    return false;
+    throw new Error("La imagen excede el tamaño máximo permitido de 5MB")
   }
 
-  return true;
-};
+  return Buffer.from(base64Data, "base64")
+}
 
+// Obtener todos los entrenadores
 export const obtenerEntrenadores = async (req, res) => {
   try {
     const entrenadores = await Entrenador.findAll({
@@ -25,192 +33,164 @@ export const obtenerEntrenadores = async (req, res) => {
         {
           model: Cuenta,
           as: "cuenta",
-          where: { activo: true },
+          attributes: ["id", "usuario", "rol"],
         },
       ],
-    });
+    })
 
-    res.json({
-      success: true,
-      data: entrenadores,
-    });
+    // Convertir imagen a base64 para enviar al frontend
+    const entrenadoresConImagen = entrenadores.map((entrenador) => {
+      const entrenadorJSON = entrenador.toJSON()
+      if (entrenadorJSON.imagen) {
+        const base64Image = entrenadorJSON.imagen.toString("base64")
+        entrenadorJSON.imagen = `data:image/jpeg;base64,${base64Image}`
+      }
+      return entrenadorJSON
+    })
+
+    res.json(entrenadoresConImagen)
   } catch (error) {
     res.status(500).json({
-      success: false,
-      message: "Error interno del servidor",
+      mensaje: "Error al obtener entrenadores",
       error: error.message,
-    });
+    })
   }
-};
+}
 
+// Obtener un entrenador por ID
 export const obtenerEntrenador = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const entrenador = await Entrenador.findOne({
-      where: { id },
+    const { id } = req.params
+    const entrenador = await Entrenador.findByPk(id, {
       include: [
         {
           model: Cuenta,
           as: "cuenta",
-          where: { activo: true },
+          attributes: ["id", "usuario", "rol"],
         },
       ],
-    });
+    })
 
     if (!entrenador) {
-      return res.status(404).json({
-        success: false,
-        message: "Entrenador no encontrado",
-      });
+      return res.status(404).json({ mensaje: "Entrenador no encontrado" })
     }
 
-    res.json({
-      success: true,
-      data: entrenador,
-    });
+    // Convertir imagen a base64
+    const entrenadorJSON = entrenador.toJSON()
+    if (entrenadorJSON.imagen) {
+      const base64Image = entrenadorJSON.imagen.toString("base64")
+      entrenadorJSON.imagen = `data:image/jpeg;base64,${base64Image}`
+    }
+
+    res.json(entrenadorJSON)
   } catch (error) {
     res.status(500).json({
-      success: false,
-      message: "Error interno del servidor",
+      mensaje: "Error al obtener entrenador",
       error: error.message,
-    });
+    })
   }
-};
+}
 
+// Crear un nuevo entrenador
 export const crearEntrenador = async (req, res) => {
   try {
-    const {
-      nombres,
-      apellidos,
-      fecha_nacimiento,
-      anos_experiencia_voley,
-      numero_celular,
-      correo_electronico,
-      cuentaId,
-      imagen,
-    } = req.body;
+    const { imagen, ...datosEntrenador } = req.body
 
-    if (imagen && !validarImagenBase64(imagen)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Formato de imagen inválido. Debe ser una imagen base64 válida (PNG, JPG, JPEG, GIF, WEBP) menor a 5MB",
-      });
+    // Validar que la cuenta existe
+    const cuenta = await Cuenta.findByPk(datosEntrenador.cuentaId)
+    if (!cuenta) {
+      return res.status(404).json({ mensaje: "Cuenta no encontrada" })
     }
 
-    const nuevo = await Entrenador.create({
-      nombres,
-      apellidos,
-      fecha_nacimiento,
-      anos_experiencia_voley,
-      numero_celular,
-      correo_electronico,
-      cuentaId,
-      imagen: imagen
-        ? Buffer.from(imagen.replace(/^data:image\/\w+;base64,/, ""), "base64")
-        : null,
-    });
+    // Validar y convertir imagen si existe
+    let imagenBuffer = null
+    if (imagen) {
+      imagenBuffer = validarImagenBase64(imagen)
+    }
 
-    res.status(201).json({
-      success: true,
-      message: "Entrenador creado exitosamente",
-      data: nuevo,
-    });
+    const nuevoEntrenador = await Entrenador.create({
+      ...datosEntrenador,
+      imagen: imagenBuffer,
+    })
+
+    // Convertir imagen a base64 para la respuesta
+    const entrenadorJSON = nuevoEntrenador.toJSON()
+    if (entrenadorJSON.imagen) {
+      const base64Image = entrenadorJSON.imagen.toString("base64")
+      entrenadorJSON.imagen = `data:image/jpeg;base64,${base64Image}`
+    }
+
+    res.status(201).json(entrenadorJSON)
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error interno del servidor",
+    res.status(400).json({
+      mensaje: "Error al crear entrenador",
       error: error.message,
-    });
+    })
   }
-};
+}
 
+// Actualizar un entrenador
 export const actualizarEntrenador = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { imagen, ...rest } = req.body;
+    const { id } = req.params
+    const { imagen, ...datosEntrenador } = req.body
 
-    if (imagen && !validarImagenBase64(imagen)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Formato de imagen inválido. Debe ser una imagen base64 válida (PNG, JPG, JPEG, GIF, WEBP) menor a 5MB",
-      });
+    const entrenador = await Entrenador.findByPk(id)
+    if (!entrenador) {
+      return res.status(404).json({ mensaje: "Entrenador no encontrado" })
     }
 
-    const entrenador = await Entrenador.findOne({
-      where: { id },
-      include: [
-        {
-          model: Cuenta,
-          as: "cuenta",
-          where: { activo: true },
-        },
-      ],
-    });
+    // Si se envía una nueva cuenta, validar que existe
+    if (datosEntrenador.cuentaId) {
+      const cuenta = await Cuenta.findByPk(datosEntrenador.cuentaId)
+      if (!cuenta) {
+        return res.status(404).json({ mensaje: "Cuenta no encontrada" })
+      }
+    }
 
-    if (!entrenador) {
-      return res.status(404).json({
-        success: false,
-        message: "Entrenador no encontrado",
-      });
+    // Validar y convertir imagen si existe
+    let imagenBuffer = undefined
+    if (imagen !== undefined) {
+      imagenBuffer = imagen ? validarImagenBase64(imagen) : null
     }
 
     await entrenador.update({
-      ...rest,
-      imagen:
-        imagen !== undefined
-          ? Buffer.from(imagen.replace(/^data:image\/\w+;base64,/, ""), "base64")
-          : entrenador.imagen,
-    });
+      ...datosEntrenador,
+      ...(imagenBuffer !== undefined && { imagen: imagenBuffer }),
+    })
 
-    res.json({
-      success: true,
-      message: "Entrenador actualizado exitosamente",
-      data: entrenador,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error interno del servidor",
-      error: error.message,
-    });
-  }
-};
-
-export const eliminarEntrenador = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const entrenador = await Entrenador.findOne({
-      where: { id },
-      include: [
-        {
-          model: Cuenta,
-          as: "cuenta",
-        },
-      ],
-    });
-
-    if (!entrenador) {
-      return res.status(404).json({
-        success: false,
-        message: "Entrenador no encontrado",
-      });
+    // Convertir imagen a base64 para la respuesta
+    const entrenadorJSON = entrenador.toJSON()
+    if (entrenadorJSON.imagen) {
+      const base64Image = entrenadorJSON.imagen.toString("base64")
+      entrenadorJSON.imagen = `data:image/jpeg;base64,${base64Image}`
     }
 
-    await entrenador.cuenta.update({ activo: false });
+    res.json(entrenadorJSON)
+  } catch (error) {
+    res.status(400).json({
+      mensaje: "Error al actualizar entrenador",
+      error: error.message,
+    })
+  }
+}
 
-    res.json({
-      success: true,
-      message: "Entrenador eliminado exitosamente",
-    });
+// Eliminar un entrenador
+export const eliminarEntrenador = async (req, res) => {
+  try {
+    const { id } = req.params
+    const entrenador = await Entrenador.findByPk(id)
+
+    if (!entrenador) {
+      return res.status(404).json({ mensaje: "Entrenador no encontrado" })
+    }
+
+    await entrenador.destroy()
+    res.json({ mensaje: "Entrenador eliminado correctamente" })
   } catch (error) {
     res.status(500).json({
-      success: false,
-      message: "Error interno del servidor",
+      mensaje: "Error al eliminar entrenador",
       error: error.message,
-    });
+    })
   }
-};
+}

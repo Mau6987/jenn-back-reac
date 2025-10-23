@@ -1,25 +1,21 @@
-// routes/rankingRoutes.js
-import express from "express";
-import { 
-  rankingPersonal, 
-  rankingGeneral, 
-  rankingPersonalFiltrado, 
-  rankingGeneralFiltrado 
-} from "../controllers/rankingController.js";
+import express from "express"
+import {
+  obtenerResultadosPersonales,
+  obtenerRankingGeneral,
+  obtenerPosicionUsuario, // Importando nuevo controlador
+} from "../controllers/rankingController.js"
 
-const router = express.Router();
+const router = express.Router()
 
-// 📌 Ranking personal (por cuentaId, últimos 7 días)
-router.get("/personal/:cuentaId", rankingPersonal);
+// Ruta para obtener resultados personales de un usuario
+// Query params: periodo (semanal, mensual, general)
+router.get("/personal/:cuentaId", obtenerResultadosPersonales)
 
-// 📌 Ranking general (todos los jugadores, últimos 7 días)
-router.get("/general", rankingGeneral);
+// Ruta para obtener ranking general (top 5)
+// Query params: periodo (semanal, mensual, general), posicion, carrera
+router.get("/general", obtenerRankingGeneral)
 
-// 📌 Ranking personal con filtros (POST con body JSON)
-router.post("/personal/filtros", rankingPersonalFiltrado);
+// Query params: periodo (semanal, mensual, general), posicion, carrera
+router.get("/posicion/:cuentaId", obtenerPosicionUsuario)
 
-
-// 📌 Ranking general con filtros (POST con body JSON)
-router.post("/general/filtros", rankingGeneralFiltrado);
-
-export default router;
+export default router

@@ -1,6 +1,6 @@
 // models/Entrenador.js
-import { DataTypes } from "sequelize";
-import { sequelize } from "../config/database.js";
+import { DataTypes } from "sequelize"
+import { sequelize } from "../config/database.js"
 
 export const Entrenador = sequelize.define(
   "entrenadores",
@@ -44,10 +44,10 @@ export const Entrenador = sequelize.define(
       unique: true,
       validate: { isEmail: true },
     },
-      imagen: {
-    type: DataTypes.BLOB, // Sequelize lo convierte en BYTEA automáticamente
-    allowNull: true,
-  },
+    imagen: {
+      type: DataTypes.BLOB,
+      allowNull: true,
+    },
     cuentaId: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -57,5 +57,5 @@ export const Entrenador = sequelize.define(
   {
     tableName: "entrenadores",
     timestamps: false,
-  }
-);
+  },
+)

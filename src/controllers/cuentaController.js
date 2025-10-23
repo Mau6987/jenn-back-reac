@@ -54,6 +54,7 @@ export const obtenerCuenta = async (req, res) => {
         { model: Tecnico, as: "tecnico" },
       ],
     })
+//asd
 
     if (!cuenta) return res.status(404).json({ success: false, message: "Cuenta no encontrada" })
 

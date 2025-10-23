@@ -12,11 +12,13 @@ export const iniciarPliometria = async (req, res) => {
     if (!cuentaId || !movimiento)
       return res.status(400).json({ success: false, message: "cuentaId y movimiento son requeridos" })
 
-    const nuevaPliometria = await PliometriaActualizada.create({
+    const nuevaPliometria = await Pliometria.create({
       cuentaId,
       movimiento,
       fuerzaizquierda: 0,
       fuerzaderecha: 0,
+      aceleracion: 0,
+      potencia: 0,
       fecha: new Date(),
       estado: "en_curso",
     })
@@ -32,14 +34,16 @@ export const iniciarPliometria = async (req, res) => {
 export const finalizarPliometria = async (req, res) => {
   try {
     const { id } = req.params
-    const { fuerzaizquierda, fuerzaderecha } = req.body
+    const { fuerzaizquierda, fuerzaderecha, aceleracion, potencia } = req.body
 
-    const pliometria = await PliometriaActualizada.findByPk(id)
+    const pliometria = await Pliometria.findByPk(id)
     if (!pliometria) return res.status(404).json({ success: false, message: "Pliometría no encontrada" })
 
     await pliometria.update({
       fuerzaizquierda,
       fuerzaderecha,
+      aceleracion,
+      potencia,
       estado: "finalizada",
     })
 
@@ -53,7 +57,7 @@ export const finalizarPliometria = async (req, res) => {
 // Obtener todas las pliometrías finalizadas
 export const obtenerPliometrias = async (req, res) => {
   try {
-    const pliometrias = await PliometriaActualizada.findAll({
+    const pliometrias = await Pliometria.findAll({
       where: { estado: "finalizada" },
       include: [
         {
@@ -82,6 +86,8 @@ export const obtenerPliometrias = async (req, res) => {
         id: plio.id,
         fuerzaizquierda: plio.fuerzaizquierda,
         fuerzaderecha: plio.fuerzaderecha,
+        aceleracion: plio.aceleracion,
+        potencia: plio.potencia,
         movimiento: plio.movimiento,
         fecha: plio.fecha,
         jugador: nombre,
@@ -100,7 +106,7 @@ export const obtenerPliometriasPorUsuario = async (req, res) => {
   try {
     const { cuentaId } = req.params
 
-    const pliometrias = await PliometriaActualizada.findAll({
+    const pliometrias = await Pliometria.findAll({
       where: { cuentaId, estado: "finalizada" },
       include: [
         {
@@ -129,6 +135,8 @@ export const obtenerPliometriasPorUsuario = async (req, res) => {
         id: plio.id,
         fuerzaizquierda: plio.fuerzaizquierda,
         fuerzaderecha: plio.fuerzaderecha,
+        aceleracion: plio.aceleracion,
+        potencia: plio.potencia,
         movimiento: plio.movimiento,
         fecha: plio.fecha,
         jugador: nombre,
@@ -146,7 +154,7 @@ export const obtenerPliometriasPorUsuario = async (req, res) => {
 export const eliminarPliometria = async (req, res) => {
   try {
     const { id } = req.params
-    const pliometria = await PliometriaActualizada.findByPk(id)
+    const pliometria = await Pliometria.findByPk(id)
     if (!pliometria) return res.status(404).json({ success: false, message: "Pliometría no encontrada" })
 
     await pliometria.destroy()

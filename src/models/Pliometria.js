@@ -25,6 +25,18 @@ export const Pliometria = sequelize.define(
       allowNull: false,
       validate: { min: 0 },
     },
+    aceleracion: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0,
+      validate: { min: 0 },
+    },
+    potencia: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0,
+      validate: { min: 0 },
+    },
     movimiento: {
       type: DataTypes.STRING(100),
       allowNull: false,

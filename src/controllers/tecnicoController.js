@@ -103,8 +103,7 @@ export const crearTecnico = async (req, res) => {
       fecha_nacimiento,
       correo_institucional,
       numero_celular,
-      cuentaId,
-      imagen: convertirBase64ABuffer(imagen),
+      cuentaId
     })
 
     res.status(201).json({

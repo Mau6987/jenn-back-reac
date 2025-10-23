@@ -39,10 +39,6 @@ export const Tecnico = sequelize.define(
       allowNull: false,
       validate: { len: [8, 15], isNumeric: true },
     },
-    imagen: {
-      type: DataTypes.BLOB("long"),
-      allowNull: true,
-    },
     cuentaId: {
       type: DataTypes.INTEGER,
       allowNull: false,

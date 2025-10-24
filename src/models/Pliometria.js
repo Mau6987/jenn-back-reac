@@ -15,10 +15,15 @@ export const Pliometria = sequelize.define(
       allowNull: false,
       references: { model: "cuentas", key: "id" },
     },
-    // NUEVO: tipo de pliometría
     tipo: {
       type: DataTypes.ENUM("salto cajon", "salto simple", "salto valla"),
       allowNull: false,
+    },
+    tiempo: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      validate: { min: 0 },
     },
     fuerzaizquierda: {
       type: DataTypes.FLOAT,

@@ -5,12 +5,10 @@ import { Jugador } from "../models/Jugador.js"
 import { Entrenador } from "../models/Entrenador.js"
 import { Tecnico } from "../models/Tecnico.js"
 
-// Iniciar pliometría
 export const iniciarPliometria = async (req, res) => {
   try {
-    const { cuentaId, tipo } = req.body
-    if (!cuentaId || !tipo)
-      return res.status(400).json({ success: false, message: "cuentaId y tipo son requeridos" })
+    const { cuentaId, tipo, tiempo } = req.body
+    if (!cuentaId || !tipo) return res.status(400).json({ success: false, message: "cuentaId y tipo son requeridos" })
 
     const TIPOS = ["salto cajon", "salto simple", "salto valla"]
     if (!TIPOS.includes(tipo))
@@ -19,6 +17,7 @@ export const iniciarPliometria = async (req, res) => {
     const nuevaPliometria = await Pliometria.create({
       cuentaId,
       tipo,
+      tiempo: tiempo || 0,
       fuerzaizquierda: 0,
       fuerzaderecha: 0,
       aceleracion: 0,
@@ -34,7 +33,6 @@ export const iniciarPliometria = async (req, res) => {
   }
 }
 
-// Finalizar pliometría (sin cambios de campos)
 export const finalizarPliometria = async (req, res) => {
   try {
     const { id } = req.params
@@ -58,19 +56,22 @@ export const finalizarPliometria = async (req, res) => {
   }
 }
 
-// Listados: incluir `tipo` y eliminar `movimiento`
 export const obtenerPliometrias = async (req, res) => {
   try {
     const pliometrias = await Pliometria.findAll({
       where: { estado: "finalizada" },
-      include: [{
-        model: Cuenta, as: "cuenta", attributes: { exclude: ["contraseña", "token"] },
-        include: [
-          { model: Jugador, as: "jugador", attributes: ["nombres", "apellidos"] },
-          { model: Entrenador, as: "entrenador", attributes: ["nombres", "apellidos"] },
-          { model: Tecnico, as: "tecnico", attributes: ["nombres", "apellidos"] },
-        ],
-      }],
+      include: [
+        {
+          model: Cuenta,
+          as: "cuenta",
+          attributes: { exclude: ["contraseña", "token"] },
+          include: [
+            { model: Jugador, as: "jugador", attributes: ["nombres", "apellidos"] },
+            { model: Entrenador, as: "entrenador", attributes: ["nombres", "apellidos"] },
+            { model: Tecnico, as: "tecnico", attributes: ["nombres", "apellidos"] },
+          ],
+        },
+      ],
       order: [["fecha", "DESC"]],
     })
 
@@ -85,6 +86,7 @@ export const obtenerPliometrias = async (req, res) => {
       return {
         id: plio.id,
         tipo: plio.tipo,
+        tiempo: plio.tiempo,
         fuerzaizquierda: plio.fuerzaizquierda,
         fuerzaderecha: plio.fuerzaderecha,
         aceleracion: plio.aceleracion,
@@ -106,14 +108,18 @@ export const obtenerPliometriasPorUsuario = async (req, res) => {
     const { cuentaId } = req.params
     const pliometrias = await Pliometria.findAll({
       where: { cuentaId, estado: "finalizada" },
-      include: [{
-        model: Cuenta, as: "cuenta", attributes: { exclude: ["contraseña", "token"] },
-        include: [
-          { model: Jugador, as: "jugador", attributes: ["nombres", "apellidos"] },
-          { model: Entrenador, as: "entrenador", attributes: ["nombres", "apellidos"] },
-          { model: Tecnico, as: "tecnico", attributes: ["nombres", "apellidos"] },
-        ],
-      }],
+      include: [
+        {
+          model: Cuenta,
+          as: "cuenta",
+          attributes: { exclude: ["contraseña", "token"] },
+          include: [
+            { model: Jugador, as: "jugador", attributes: ["nombres", "apellidos"] },
+            { model: Entrenador, as: "entrenador", attributes: ["nombres", "apellidos"] },
+            { model: Tecnico, as: "tecnico", attributes: ["nombres", "apellidos"] },
+          ],
+        },
+      ],
       order: [["fecha", "DESC"]],
     })
 
@@ -128,6 +134,7 @@ export const obtenerPliometriasPorUsuario = async (req, res) => {
       return {
         id: plio.id,
         tipo: plio.tipo,
+        tiempo: plio.tiempo,
         fuerzaizquierda: plio.fuerzaizquierda,
         fuerzaderecha: plio.fuerzaderecha,
         aceleracion: plio.aceleracion,
@@ -144,7 +151,6 @@ export const obtenerPliometriasPorUsuario = async (req, res) => {
   }
 }
 
-// Eliminar pliometría
 export const eliminarPliometria = async (req, res) => {
   try {
     const { id } = req.params

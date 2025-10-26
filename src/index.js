@@ -16,6 +16,8 @@ import rankingRoutes from "./routes/ranking.js"
 import horarioRoutes from "./routes/horarioRoutes.js"
 import pliometriaRoutes from "./routes/pliometriaRoutes.js"
 import alcanceRoutes from "./routes/alcanceRoutes.js"
+// 👇 NUEVO: rutas de métricas de ranking
+import rankingMetricasRoutes from "./routes/rankingMetricasRoutes.js"
 
 // Importar modelos para establecer asociaciones
 import "./models/index.js"
@@ -59,6 +61,8 @@ app.use("/api/tecnicos", tecnicoRoutes)
 app.use("/api/pusher", pusherRoutes)
 app.use("/api/pruebas", pruebaRoutes)
 app.use("/api/ranking", rankingRoutes)
+// 👇 NUEVO: se compone con las rutas existentes bajo /api/ranking
+app.use("/api/ranking", rankingMetricasRoutes)
 app.use("/api/horarios", horarioRoutes)
 app.use("/api/pliometrias", pliometriaRoutes)
 app.use("/api/alcances", alcanceRoutes)

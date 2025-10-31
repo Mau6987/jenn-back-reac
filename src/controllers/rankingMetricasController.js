@@ -37,13 +37,6 @@ const buildJugadorWhere = ({ periodo, posicion, carrera }) => {
   return where
 }
 
-// Aceleración por registro de Alcance (asunción: a = v / t)
-const calcAceleracionAlcance = (r) => {
-  const t = r?.tiempodevuelo ?? 0
-  const v = r?.velocidad ?? 0
-  return (t > 0 && v > 0) ? (v / t) : 0
-}
-
 // ========== ALCANCE - POSICIÓN USUARIO ==========
 
 // GET /ranking/alcance/posicion/:cuentaId
@@ -263,7 +256,7 @@ export const obtenerRankingAlcance = async (req, res) => {
   }
 }
 
-// ========== ALCANCE - RESULTADOS PERSONALES (incluye aceleración) ==========
+// ========== ALCANCE - RESULTADOS PERSONALES (peor, actual, mejor) ==========
 
 // GET /api/ranking/alcance/personal/:cuentaId
 export const obtenerResultadosPersonalesAlcance = async (req, res) => {
@@ -299,34 +292,20 @@ export const obtenerResultadosPersonalesAlcance = async (req, res) => {
     const regs = cuenta.alcances || []
     const total = regs.length
 
-    // Arrays por métrica
-    const alcances = regs.map(r => r.alcance ?? 0)
-    const potencias = regs.map(r => r.potencia ?? 0)
-    const aceleraciones = regs.map(r => calcAceleracionAlcance(r))
-
-    // Mejor / Peor
-    const mejorAlcance = total ? Math.max(...alcances) : 0
-    const peorAlcance  = total ? Math.min(...alcances) : 0
-
-    const mejorPotencia = total ? Math.max(...potencias) : 0
-    const peorPotencia  = total ? Math.min(...potencias) : 0
-
-    const mejorAceleracion = total ? Math.max(...aceleraciones) : 0
-    const peorAceleracion  = total ? Math.min(...aceleraciones) : 0
+    const mejorAlcance = regs.reduce((m, r) => Math.max(m, r.alcance ?? 0), 0)
+    const peorAlcance = total ? regs.reduce((m, r) => Math.min(m, r.alcance ?? Infinity), Infinity) : 0
+    const mejorPotencia = regs.reduce((m, r) => Math.max(m, r.potencia ?? 0), 0)
+    const peorPotencia = total ? regs.reduce((m, r) => Math.min(m, r.potencia ?? Infinity), Infinity) : 0
 
     // Actual = último registro por fecha (más reciente) con estado finalizada
     const ultimo = total
       ? regs.slice().sort((a, b) => new Date(b.fecha) - new Date(a.fecha) || b.id - a.id)[0]
       : null
-
     const alcanceActual = ultimo?.alcance ?? 0
     const potenciaActual = ultimo?.potencia ?? 0
-    const aceleracionActual = ultimo ? calcAceleracionAlcance(ultimo) : 0
 
-    // Promedios
-    const promedioAlcance = total ? (alcances.reduce((s, v) => s + v, 0) / total) : 0
-    const promedioPotencia = total ? (potencias.reduce((s, v) => s + v, 0) / total) : 0
-    const promedioAceleracion = total ? (aceleraciones.reduce((s, v) => s + v, 0) / total) : 0
+    const promedioAlcance = total ? regs.reduce((s, r) => s + (r.alcance ?? 0), 0) / total : 0
+    const promedioPotencia = total ? regs.reduce((s, r) => s + (r.potencia ?? 0), 0) / total : 0
 
     // Obtener posición en el ranking (por mejor alcance)
     const cuentas = await Cuenta.findAll({
@@ -346,9 +325,9 @@ export const obtenerResultadosPersonalesAlcance = async (req, res) => {
     })
 
     const items = cuentas.map((c) => {
-      const regsC = (c.alcances || [])
-      const mejorAlcanceC = regsC.reduce((m, r) => Math.max(m, r.alcance ?? 0), 0)
-      return { cuentaId: c.id, mejor_alcance: mejorAlcanceC }
+      const regs = c.alcances || []
+      const mejorAlcance = regs.reduce((m, r) => Math.max(m, r.alcance ?? 0), 0)
+      return { cuentaId: c.id, mejor_alcance: mejorAlcance }
     })
 
     const rankingCompleto = items.sort((a, b) => b.mejor_alcance - a.mejor_alcance)
@@ -367,26 +346,14 @@ export const obtenerResultadosPersonalesAlcance = async (req, res) => {
         },
         estadisticas: {
           total_registros: total,
-
-          // Alcance
-          peor_alcance: Number(peorAlcance.toFixed(3)),
+          peor_alcance: Number((peorAlcance === Infinity ? 0 : peorAlcance).toFixed(3)),
           alcance_actual: Number(alcanceActual.toFixed(3)),
           mejor_alcance: Number(mejorAlcance.toFixed(3)),
-
-          // Potencia
-          peor_potencia: Number(peorPotencia.toFixed(3)),
+          peor_potencia: Number((peorPotencia === Infinity ? 0 : peorPotencia).toFixed(3)),
           potencia_actual: Number(potenciaActual.toFixed(3)),
           mejor_potencia: Number(mejorPotencia.toFixed(3)),
-
-          // Aceleración
-          peor_aceleracion: Number(peorAceleracion.toFixed(3)),
-          aceleracion_actual: Number(aceleracionActual.toFixed(3)),
-          mejor_aceleracion: Number(mejorAceleracion.toFixed(3)),
-
-          // Promedios
           promedio_alcance: Number(promedioAlcance.toFixed(3)),
           promedio_potencia: Number(promedioPotencia.toFixed(3)),
-          promedio_aceleracion: Number(promedioAceleracion.toFixed(3)),
         },
         ranking: {
           posicion,
@@ -493,7 +460,7 @@ export const obtenerRankingPliometria = async (req, res) => {
   }
 }
 
-// ========== PLIOMETRÍA - RESULTADOS PERSONALES (promedios por período) ==========
+// ========== PLIOMETRÍA - RESULTADOS PERSONALES (fuerza total y promedios) ==========
 
 // GET /api/ranking/pliometria/personal/:cuentaId
 export const obtenerResultadosPersonalesPliometria = async (req, res) => {
@@ -533,9 +500,8 @@ export const obtenerResultadosPersonalesPliometria = async (req, res) => {
     const total = regs.length
 
     const fuerzaTotalPorRegistro = regs.map((r) => (r.fuerzaizquierda ?? 0) + (r.fuerzaderecha ?? 0))
-    const mejorFuerzaTotal = total ? Math.max(...fuerzaTotalPorRegistro) : 0
+    const mejorFuerzaTotal = fuerzaTotalPorRegistro.reduce((m, v) => Math.max(m, v ?? 0), 0)
     const mejorPotencia = regs.reduce((m, r) => Math.max(m, r.potencia ?? 0), 0)
-
     const promedioFuerzaTotal = total ? fuerzaTotalPorRegistro.reduce((s, v) => s + v, 0) / total : 0
     const promedioPotencia = total ? regs.reduce((s, r) => s + (r.potencia ?? 0), 0) / total : 0
     const promedioAceleracion = total ? regs.reduce((s, r) => s + (r.aceleracion ?? 0), 0) / total : 0

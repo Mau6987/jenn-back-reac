@@ -1,11 +1,13 @@
-// controllers/rankingMetricasController.js
+// controllers/rankingMetricasController.js (MERGED)
 import { Op } from "sequelize"
 import { Cuenta } from "../models/Cuenta.js"
 import { Jugador } from "../models/Jugador.js"
 import { Alcance } from "../models/Alcance.js"
 import { Pliometria } from "../models/Pliometria.js"
 
-// ========== FUNCIONES AUXILIARES ==========
+// =========================================================
+// Helpers
+// =========================================================
 
 // Calcular rango de fechas según el periodo
 const calcularRangoFechas = (periodo) => {
@@ -37,9 +39,10 @@ const buildJugadorWhere = ({ periodo, posicion, carrera }) => {
   return where
 }
 
-// ========== ALCANCE - POSICIÓN USUARIO ==========
-
+// =========================================================
+// ALCANCE - POSICIÓN USUARIO
 // GET /ranking/alcance/posicion/:cuentaId
+// =========================================================
 export const obtenerPosicionUsuarioAlcance = async (req, res) => {
   try {
     const { cuentaId } = req.params
@@ -52,10 +55,7 @@ export const obtenerPosicionUsuarioAlcance = async (req, res) => {
         { model: Jugador, as: "jugador", where: buildJugadorWhere({ periodo, posicion, carrera }), required: true },
         {
           model: Alcance, as: "alcances",
-          where: {
-            estado: "finalizada",
-            fecha: { [Op.between]: [fechaInicio, fechaFin] },
-          },
+          where: { estado: "finalizada", fecha: { [Op.between]: [fechaInicio, fechaFin] } },
           required: false,
         },
       ],
@@ -105,19 +105,17 @@ export const obtenerPosicionUsuarioAlcance = async (req, res) => {
   }
 }
 
-// ========== PLIOMETRÍA - POSICIÓN USUARIO (usa fuerza total) ==========
-
+// =========================================================
+// PLIOMETRÍA - POSICIÓN USUARIO (usa fuerza total)
 // GET /ranking/pliometria/posicion/:cuentaId
+// =========================================================
 export const obtenerPosicionUsuarioPliometria = async (req, res) => {
   try {
     const { cuentaId } = req.params
     const { periodo = "general", posicion, carrera, tipo } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
 
-    const wherePlio = {
-      estado: "finalizada",
-      fecha: { [Op.between]: [fechaInicio, fechaFin] },
-    }
+    const wherePlio = { estado: "finalizada", fecha: { [Op.between]: [fechaInicio, fechaFin] } }
     if (tipo) wherePlio.tipo = tipo
 
     const cuentas = await Cuenta.findAll({
@@ -148,9 +146,7 @@ export const obtenerPosicionUsuarioPliometria = async (req, res) => {
     })
 
     const rankingCompleto = items.sort(
-      (a, b) =>
-        b.mejor_fuerza_total - a.mejor_fuerza_total ||
-        b.mejor_potencia - a.mejor_potencia
+      (a, b) => b.mejor_fuerza_total - a.mejor_fuerza_total || b.mejor_potencia - a.mejor_potencia
     )
 
     const idx = rankingCompleto.findIndex(({ cuentaId: id }) => id === Number(cuentaId))
@@ -176,9 +172,10 @@ export const obtenerPosicionUsuarioPliometria = async (req, res) => {
   }
 }
 
-// ========== ALCANCE - RANKING GENERAL ==========
-
+// =========================================================
+// ALCANCE - RANKING GENERAL
 // GET /api/ranking/alcance
+// =========================================================
 export const obtenerRankingAlcance = async (req, res) => {
   try {
     const { periodo = "general", posicion, carrera, limit = 5 } = req.query
@@ -187,19 +184,11 @@ export const obtenerRankingAlcance = async (req, res) => {
     const cuentas = await Cuenta.findAll({
       where: { rol: "jugador", activo: true },
       include: [
-        {
-          model: Jugador,
-          as: "jugador",
-          where: buildJugadorWhere({ periodo, posicion, carrera }),
-          required: true,
-        },
+        { model: Jugador, as: "jugador", where: buildJugadorWhere({ periodo, posicion, carrera }), required: true },
         {
           model: Alcance,
           as: "alcances",
-          where: {
-            estado: "finalizada",
-            fecha: { [Op.between]: [fechaInicio, fechaFin] },
-          },
+          where: { estado: "finalizada", fecha: { [Op.between]: [fechaInicio, fechaFin] } },
           required: false,
         },
       ],
@@ -248,24 +237,21 @@ export const obtenerRankingAlcance = async (req, res) => {
     })
   } catch (error) {
     console.error(error)
-    res.status(500).json({
-      success: false,
-      message: "Error al obtener ranking de alcance",
-      error: error.message,
-    })
+    res.status(500).json({ success: false, message: "Error al obtener ranking de alcance", error: error.message })
   }
 }
 
-// ========== ALCANCE - RESULTADOS PERSONALES (peor, actual, mejor) ==========
-
+// =========================================================
+// ALCANCE - RESULTADOS PERSONALES (mejor, actual, promedio)
+// REEMPLAZA la versión anterior que incluía "peor"
 // GET /api/ranking/alcance/personal/:cuentaId
+// =========================================================
 export const obtenerResultadosPersonalesAlcance = async (req, res) => {
   try {
     const { cuentaId } = req.params
     const { periodo = "general" } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
 
-    // Obtener cuenta con jugador y alcances
     const cuenta = await Cuenta.findOne({
       where: { id: cuentaId, rol: "jugador", activo: true },
       include: [
@@ -273,41 +259,38 @@ export const obtenerResultadosPersonalesAlcance = async (req, res) => {
         {
           model: Alcance,
           as: "alcances",
-          where: {
-            estado: "finalizada",
-            fecha: { [Op.between]: [fechaInicio, fechaFin] },
-          },
+          where: { estado: "finalizada", fecha: { [Op.between]: [fechaInicio, fechaFin] } },
           required: false,
         },
       ],
     })
 
     if (!cuenta) {
-      return res.status(404).json({
-        success: false,
-        message: "Usuario no encontrado",
-      })
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" })
     }
 
     const regs = cuenta.alcances || []
     const total = regs.length
 
-    const mejorAlcance = regs.reduce((m, r) => Math.max(m, r.alcance ?? 0), 0)
-    const peorAlcance = total ? regs.reduce((m, r) => Math.min(m, r.alcance ?? Infinity), Infinity) : 0
-    const mejorPotencia = regs.reduce((m, r) => Math.max(m, r.potencia ?? 0), 0)
-    const peorPotencia = total ? regs.reduce((m, r) => Math.min(m, r.potencia ?? Infinity), Infinity) : 0
-
-    // Actual = último registro por fecha (más reciente) con estado finalizada
-    const ultimo = total
+    // Alcance
+    const mejor_alcance = regs.reduce((m, r) => Math.max(m, r.alcance ?? 0), 0)
+    const ultimo_alcance = total
       ? regs.slice().sort((a, b) => new Date(b.fecha) - new Date(a.fecha) || b.id - a.id)[0]
       : null
-    const alcanceActual = ultimo?.alcance ?? 0
-    const potenciaActual = ultimo?.potencia ?? 0
+    const actual_alcance = ultimo_alcance?.alcance ?? 0
+    const promedio_alcance = total ? regs.reduce((s, r) => s + (r.alcance ?? 0), 0) / total : 0
 
-    const promedioAlcance = total ? regs.reduce((s, r) => s + (r.alcance ?? 0), 0) / total : 0
-    const promedioPotencia = total ? regs.reduce((s, r) => s + (r.potencia ?? 0), 0) / total : 0
+    // Velocidad (Potencia)
+    const mejor_velocidad = regs.reduce((m, r) => Math.max(m, r.potencia ?? 0), 0)
+    const actual_velocidad = ultimo_alcance?.potencia ?? 0
+    const promedio_velocidad = total ? regs.reduce((s, r) => s + (r.potencia ?? 0), 0) / total : 0
 
-    // Obtener posición en el ranking (por mejor alcance)
+    // Potencia (mismo que velocidad en alcance)
+    const mejor_potencia = mejor_velocidad
+    const actual_potencia = actual_velocidad
+    const promedio_potencia = promedio_velocidad
+
+    // Ranking por mejor alcance
     const cuentas = await Cuenta.findAll({
       where: { rol: "jugador", activo: true },
       include: [
@@ -315,10 +298,7 @@ export const obtenerResultadosPersonalesAlcance = async (req, res) => {
         {
           model: Alcance,
           as: "alcances",
-          where: {
-            estado: "finalizada",
-            fecha: { [Op.between]: [fechaInicio, fechaFin] },
-          },
+          where: { estado: "finalizada", fecha: { [Op.between]: [fechaInicio, fechaFin] } },
           required: false,
         },
       ],
@@ -346,60 +326,48 @@ export const obtenerResultadosPersonalesAlcance = async (req, res) => {
         },
         estadisticas: {
           total_registros: total,
-          peor_alcance: Number((peorAlcance === Infinity ? 0 : peorAlcance).toFixed(3)),
-          alcance_actual: Number(alcanceActual.toFixed(3)),
-          mejor_alcance: Number(mejorAlcance.toFixed(3)),
-          peor_potencia: Number((peorPotencia === Infinity ? 0 : peorPotencia).toFixed(3)),
-          potencia_actual: Number(potenciaActual.toFixed(3)),
-          mejor_potencia: Number(mejorPotencia.toFixed(3)),
-          promedio_alcance: Number(promedioAlcance.toFixed(3)),
-          promedio_potencia: Number(promedioPotencia.toFixed(3)),
+          alcance: {
+            mejor: Number(mejor_alcance.toFixed(3)),
+            actual: Number(actual_alcance.toFixed(3)),
+            promedio: Number(promedio_alcance.toFixed(3)),
+          },
+          velocidad: {
+            mejor: Number(mejor_velocidad.toFixed(3)),
+            actual: Number(actual_velocidad.toFixed(3)),
+            promedio: Number(promedio_velocidad.toFixed(3)),
+          },
+          potencia: {
+            mejor: Number(mejor_potencia.toFixed(3)),
+            actual: Number(actual_potencia.toFixed(3)),
+            promedio: Number(promedio_potencia.toFixed(3)),
+          },
         },
-        ranking: {
-          posicion,
-          total_jugadores: rankingCompleto.length,
-        },
+        ranking: { posicion, total_jugadores: rankingCompleto.length },
       },
     })
   } catch (error) {
     console.error(error)
-    res.status(500).json({
-      success: false,
-      message: "Error al obtener resultados personales de alcance",
-      error: error.message,
-    })
+    res.status(500).json({ success: false, message: "Error al obtener resultados personales de alcance", error: error.message })
   }
 }
 
-// ========== PLIOMETRÍA - RANKING GENERAL (fuerza total y promedios) ==========
-
+// =========================================================
+// PLIOMETRÍA - RANKING GENERAL (fuerza total y promedios)
 // GET /api/ranking/pliometria
+// =========================================================
 export const obtenerRankingPliometria = async (req, res) => {
   try {
     const { periodo = "general", posicion, carrera, limit = 5, tipo } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
 
-    const wherePlio = {
-      estado: "finalizada",
-      fecha: { [Op.between]: [fechaInicio, fechaFin] },
-    }
+    const wherePlio = { estado: "finalizada", fecha: { [Op.between]: [fechaInicio, fechaFin] } }
     if (tipo) wherePlio.tipo = tipo
 
     const cuentas = await Cuenta.findAll({
       where: { rol: "jugador", activo: true },
       include: [
-        {
-          model: Jugador,
-          as: "jugador",
-          where: buildJugadorWhere({ periodo, posicion, carrera }),
-          required: true,
-        },
-        {
-          model: Pliometria,
-          as: "pliometrias",
-          where: wherePlio,
-          required: false,
-        },
+        { model: Jugador, as: "jugador", where: buildJugadorWhere({ periodo, posicion, carrera }), required: true },
+        { model: Pliometria, as: "pliometrias", where: wherePlio, required: false },
       ],
     })
 
@@ -407,7 +375,6 @@ export const obtenerRankingPliometria = async (req, res) => {
       const regs = c.pliometrias || []
       const total = regs.length
 
-      // Fuerza TOTAL por registro = suma (izq + der)
       const fuerzaTotalPorRegistro = regs.map((r) => (r.fuerzaizquierda ?? 0) + (r.fuerzaderecha ?? 0))
       const mejorFuerzaTotal = fuerzaTotalPorRegistro.reduce((m, v) => Math.max(m, v ?? 0), 0)
       const mejorPotencia = regs.reduce((m, r) => Math.max(m, r.potencia ?? 0), 0)
@@ -452,71 +419,64 @@ export const obtenerRankingPliometria = async (req, res) => {
     })
   } catch (error) {
     console.error(error)
-    res.status(500).json({
-      success: false,
-      message: "Error al obtener ranking de pliometría",
-      error: error.message,
-    })
+    res.status(500).json({ success: false, message: "Error al obtener ranking de pliometría", error: error.message })
   }
 }
 
-// ========== PLIOMETRÍA - RESULTADOS PERSONALES (fuerza total y promedios) ==========
-
+// =========================================================
+// PLIOMETRÍA - RESULTADOS PERSONALES (mejor, actual, promedio)
+// REEMPLAZA la versión anterior
 // GET /api/ranking/pliometria/personal/:cuentaId
+// =========================================================
 export const obtenerResultadosPersonalesPliometria = async (req, res) => {
   try {
     const { cuentaId } = req.params
     const { periodo = "general", tipo } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
 
-    const wherePlio = {
-      estado: "finalizada",
-      fecha: { [Op.between]: [fechaInicio, fechaFin] },
-    }
+    const wherePlio = { estado: "finalizada", fecha: { [Op.between]: [fechaInicio, fechaFin] } }
     if (tipo) wherePlio.tipo = tipo
 
-    // Obtener cuenta con jugador y pliometrías
     const cuenta = await Cuenta.findOne({
       where: { id: cuentaId, rol: "jugador", activo: true },
       include: [
         { model: Jugador, as: "jugador", required: true },
-        {
-          model: Pliometria,
-          as: "pliometrias",
-          where: wherePlio,
-          required: false,
-        },
+        { model: Pliometria, as: "pliometrias", where: wherePlio, required: false },
       ],
     })
 
     if (!cuenta) {
-      return res.status(404).json({
-        success: false,
-        message: "Usuario no encontrado",
-      })
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" })
     }
 
     const regs = cuenta.pliometrias || []
     const total = regs.length
 
-    const fuerzaTotalPorRegistro = regs.map((r) => (r.fuerzaizquierda ?? 0) + (r.fuerzaderecha ?? 0))
-    const mejorFuerzaTotal = fuerzaTotalPorRegistro.reduce((m, v) => Math.max(m, v ?? 0), 0)
-    const mejorPotencia = regs.reduce((m, r) => Math.max(m, r.potencia ?? 0), 0)
-    const promedioFuerzaTotal = total ? fuerzaTotalPorRegistro.reduce((s, v) => s + v, 0) / total : 0
-    const promedioPotencia = total ? regs.reduce((s, r) => s + (r.potencia ?? 0), 0) / total : 0
-    const promedioAceleracion = total ? regs.reduce((s, r) => s + (r.aceleracion ?? 0), 0) / total : 0
+    // Último registro
+    const ultimo = total ? regs.slice().sort((a, b) => new Date(b.fecha) - new Date(a.fecha) || b.id - a.id)[0] : null
 
-    // Obtener posición en el ranking (por mejor fuerza total)
+    // Fuerza total (izq + der)
+    const fuerzaTotalPorRegistro = regs.map((r) => (r.fuerzaizquierda ?? 0) + (r.fuerzaderecha ?? 0))
+    const mejor_fuerza = fuerzaTotalPorRegistro.reduce((m, v) => Math.max(m, v ?? 0), 0)
+    const actual_fuerza = ultimo ? (ultimo.fuerzaizquierda ?? 0) + (ultimo.fuerzaderecha ?? 0) : 0
+    const promedio_fuerza = total ? fuerzaTotalPorRegistro.reduce((s, v) => s + v, 0) / total : 0
+
+    // Potencia
+    const mejor_potencia = regs.reduce((m, r) => Math.max(m, r.potencia ?? 0), 0)
+    const actual_potencia = ultimo?.potencia ?? 0
+    const promedio_potencia = total ? regs.reduce((s, r) => s + (r.potencia ?? 0), 0) / total : 0
+
+    // Aceleración
+    const mejor_aceleracion = regs.reduce((m, r) => Math.max(m, r.aceleracion ?? 0), 0)
+    const actual_aceleracion = ultimo?.aceleracion ?? 0
+    const promedio_aceleracion = total ? regs.reduce((s, r) => s + (r.aceleracion ?? 0), 0) / total : 0
+
+    // Ranking por mejor fuerza total
     const cuentas = await Cuenta.findAll({
       where: { rol: "jugador", activo: true },
       include: [
         { model: Jugador, as: "jugador", required: true },
-        {
-          model: Pliometria,
-          as: "pliometrias",
-          where: wherePlio,
-          required: false,
-        },
+        { model: Pliometria, as: "pliometrias", where: wherePlio, required: false },
       ],
     })
 
@@ -534,9 +494,7 @@ export const obtenerResultadosPersonalesPliometria = async (req, res) => {
       success: true,
       data: {
         periodo,
-        filtros: {
-          tipo: tipo || "todos",
-        },
+        filtros: { tipo: tipo || "todos" },
         jugador: {
           id: cuenta.jugador.id,
           nombres: cuenta.jugador.nombres,
@@ -546,24 +504,27 @@ export const obtenerResultadosPersonalesPliometria = async (req, res) => {
         },
         estadisticas: {
           total_registros: total,
-          mejor_fuerza_total: Number(mejorFuerzaTotal.toFixed(3)),
-          mejor_potencia: Number(mejorPotencia.toFixed(3)),
-          promedio_fuerza_total: Number(promedioFuerzaTotal.toFixed(3)),
-          promedio_potencia: Number(promedioPotencia.toFixed(3)),
-          promedio_aceleracion: Number(promedioAceleracion.toFixed(3)),
+          fuerza: {
+            mejor: Number(mejor_fuerza.toFixed(3)),
+            actual: Number(actual_fuerza.toFixed(3)),
+            promedio: Number(promedio_fuerza.toFixed(3)),
+          },
+          potencia: {
+            mejor: Number(mejor_potencia.toFixed(3)),
+            actual: Number(actual_potencia.toFixed(3)),
+            promedio: Number(promedio_potencia.toFixed(3)),
+          },
+          aceleracion: {
+            mejor: Number(mejor_aceleracion.toFixed(3)),
+            actual: Number(actual_aceleracion.toFixed(3)),
+            promedio: Number(promedio_aceleracion.toFixed(3)),
+          },
         },
-        ranking: {
-          posicion,
-          total_jugadores: rankingCompleto.length,
-        },
+        ranking: { posicion, total_jugadores: rankingCompleto.length },
       },
     })
   } catch (error) {
     console.error(error)
-    res.status(500).json({
-      success: false,
-      message: "Error al obtener resultados personales de pliometría",
-      error: error.message,
-    })
+    res.status(500).json({ success: false, message: "Error al obtener resultados personales de pliometría", error: error.message })
   }
 }

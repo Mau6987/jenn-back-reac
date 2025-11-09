@@ -7,20 +7,6 @@ export const login = async (req, res) => {
 
     const cuenta = await Cuenta.findOne({
       where: { usuario, activo: true },
-      include: [
-        {
-          association: "jugador",
-          attributes: ["nombre", "posicion_principal"],
-        },
-        {
-          association: "entrenador",
-          attributes: ["nombre"],
-        },
-        {
-          association: "tecnico",
-          attributes: ["nombre"],
-        },
-      ],
     })
 
     if (!cuenta || !(await cuenta.verificarContrasena(contraseña))) {
@@ -35,16 +21,14 @@ export const login = async (req, res) => {
     // Guardar token en la base de datos
     await cuenta.update({ token })
 
-   
-
     res.json({
       success: true,
       message: "Inicio de sesión exitoso",
       data: {
         id: cuenta.id,
         rol: cuenta.rol,
-        token, 
-        nombre: cuenta.nombre
+        nombre: cuenta.rol,
+        token, // ya generado
       },
     })
   } catch (error) {
@@ -55,6 +39,7 @@ export const login = async (req, res) => {
     })
   }
 }
+
 
 export const logout = async (req, res) => {
   try {

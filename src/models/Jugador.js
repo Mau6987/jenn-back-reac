@@ -44,7 +44,7 @@ export const Jugador = sequelize.define(
     },
     alcance_estatico: {
       type: DataTypes.DECIMAL(3, 2),
-      allowNull: false,
+      allowNull: true,
       validate: { min: 1.5, max: 2.5 },
     },
     anos_experiencia_voley: {

@@ -174,6 +174,7 @@ export const actualizarCuenta = async (req, res) => {
         if (imagen !== undefined) {
           dataToUpdate.imagen = convertirBase64ABuffer(imagen)
         }
+        // Los campos de jugador incluyendo alcance_estatico se actualizan automáticamente
       } else if (cuenta.rol === "entrenador" && imagen !== undefined) {
         dataToUpdate.imagen = convertirBase64ABuffer(imagen)
       }
@@ -273,6 +274,7 @@ export const actualizarPerfil = async (req, res) => {
         if (imagen !== undefined) {
           dataToUpdate.imagen = convertirBase64ABuffer(imagen)
         }
+        // Los campos de jugador incluyendo alcance_estatico se actualizan automáticamente
       } else if (cuenta.rol === "entrenador" && imagen !== undefined) {
         dataToUpdate.imagen = convertirBase64ABuffer(imagen)
       }

@@ -26,7 +26,7 @@ export const Jugador = sequelize.define(
       validate: { len: [2, 100] },
     },
     posicion_principal: {
-      type: DataTypes.ENUM("armador", "opuesto", "central", "receptor", "libero"),
+      type: DataTypes.ENUM("armador", "opuesto", "central", "receptor", "libero", "punta"),
       allowNull: false,
     },
     fecha_nacimiento: {
@@ -41,6 +41,11 @@ export const Jugador = sequelize.define(
       type: DataTypes.DECIMAL(3, 2),
       allowNull: false,
       validate: { min: 1.5, max: 2.2 },
+    },
+    alcance_estatico: {
+      type: DataTypes.DECIMAL(3, 2),
+      allowNull: false,
+      validate: { min: 1.5, max: 2.5 },
     },
     anos_experiencia_voley: {
       type: DataTypes.INTEGER,

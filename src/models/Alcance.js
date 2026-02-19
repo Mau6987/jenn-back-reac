@@ -15,21 +15,6 @@ export const Alcance = sequelize.define(
       allowNull: false,
       references: { model: "cuentas", key: "id" },
     },
-    tiempodevuelo: {
-      type: DataTypes.FLOAT,
-      allowNull: false,
-      validate: { min: 0 },
-    },
-    potencia: {
-      type: DataTypes.FLOAT,
-      allowNull: false,
-      validate: { min: 0 },
-    },
-    velocidad: {
-      type: DataTypes.FLOAT,
-      allowNull: false,
-      validate: { min: 0 },
-    },
     alcance: {
       type: DataTypes.FLOAT,
       allowNull: false,
@@ -39,11 +24,6 @@ export const Alcance = sequelize.define(
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
-    },
-    estado: {
-      type: DataTypes.ENUM("pendiente", "en_curso", "finalizada"),
-      allowNull: false,
-      defaultValue: "pendiente",
     },
   },
   {

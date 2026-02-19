@@ -15,5 +15,5 @@ router.get("/", obtenerAlcances)
 router.get("/ultimo/:cuentaId", obtenerUltimoAlcance)   // <-- nuevo
 router.get("/usuario/:cuentaId", obtenerAlcancesPorUsuario)
 router.delete("/:id", eliminarAlcance)
-
+//nuvas rutas
 export default router

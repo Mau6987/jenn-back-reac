@@ -52,7 +52,7 @@ export const obtenerResultadosPersonales = async (req, res) => {
         estado: "finalizada",
         fecha: { [Op.between]: [fechaInicio, fechaFin] },
       },
-      order: [["fecha", "DESC"]],
+      order: [["fecha", "DESC"], ["tiempo_fin", "DESC"]],
     })
 
     const totalPruebas = pruebas.length
@@ -64,47 +64,45 @@ export const obtenerResultadosPersonales = async (req, res) => {
     const estadisticasPorTipo = {}
 
     tiposPrueba.forEach((tipo) => {
+      // Filtrar por tipo. El array ya viene ordenado DESC por fecha.
       const pruebasTipo = pruebas.filter((p) => p.tipo === tipo)
+
       const aciertos = pruebasTipo.reduce((sum, p) => sum + (p.cantidad_aciertos || 0), 0)
-      const errores = pruebasTipo.reduce((sum, p) => sum + (p.cantidad_errores || 0), 0)
+      const errores  = pruebasTipo.reduce((sum, p) => sum + (p.cantidad_errores  || 0), 0)
 
-      // Mejor prueba: mayor ratio aciertos/intentos (con mínimo 1 intento)
-      const mejorPrueba = pruebasTipo.reduce((mejor, actual) => {
-        if (!mejor) return actual
-        const ratioActual = (actual.cantidad_aciertos || 0) / Math.max(1, actual.cantidad_intentos || 1)
-        const ratioMejor = (mejor.cantidad_aciertos || 0) / Math.max(1, mejor.cantidad_intentos || 1)
-        return ratioActual > ratioMejor ? actual : mejor
-      }, null)
+      const getRatio = (p) => {
+        const intentos = p.cantidad_intentos || (p.cantidad_aciertos || 0) + (p.cantidad_errores || 0)
+        return intentos > 0 ? (p.cantidad_aciertos || 0) / intentos : 0
+      }
 
-      // Peor prueba: menor ratio aciertos/intentos
-      const peorPrueba = pruebasTipo.reduce((peor, actual) => {
-        if (!peor) return actual
-        const ratioActual = (actual.cantidad_aciertos || 0) / Math.max(1, actual.cantidad_intentos || 1)
-        const ratioPeor = (peor.cantidad_aciertos || 0) / Math.max(1, peor.cantidad_intentos || 1)
-        return ratioActual < ratioPeor ? actual : peor
-      }, null)
+      // Última sesión: primera del array (ya ordenado DESC por fecha)
+      const ultimaSesion = pruebasTipo.length > 0 ? pruebasTipo[0] : null
 
-      // Última sesión (la prueba más reciente de este tipo)
-      const ultimaSesion = pruebasTipo.length > 0 ? pruebasTipo[0] : null // ya ordenado DESC
+      // Mejor prueba: mayor ratio de aciertos
+      const mejorPrueba = pruebasTipo.length > 0
+        ? pruebasTipo.reduce((best, cur) => getRatio(cur) > getRatio(best) ? cur : best)
+        : null
 
-      const formatearPrueba = (p) =>
-        p
-          ? {
-              id: p.id,
-              fecha: p.fecha,
-              aciertos: p.cantidad_aciertos || 0,
-              errores: p.cantidad_errores || 0,
-              intentos: p.cantidad_intentos || (p.cantidad_aciertos || 0) + (p.cantidad_errores || 0),
-            }
-          : null
+      // Peor prueba: menor ratio de aciertos (debe ser distinta a la mejor si hay más de 1)
+      const peorPrueba = pruebasTipo.length > 0
+        ? pruebasTipo.reduce((worst, cur) => getRatio(cur) < getRatio(worst) ? cur : worst)
+        : null
+
+      const fmt = (p) => p ? {
+        id:       p.id,
+        fecha:    p.fecha,
+        aciertos: p.cantidad_aciertos || 0,
+        errores:  p.cantidad_errores  || 0,
+        intentos: p.cantidad_intentos || (p.cantidad_aciertos || 0) + (p.cantidad_errores || 0),
+      } : null
 
       estadisticasPorTipo[tipo] = {
         total_realizadas: pruebasTipo.length,
-        total_aciertos: aciertos,
-        total_errores: errores,
-        ultima_sesion: formatearPrueba(ultimaSesion),
-        mejor_prueba: formatearPrueba(mejorPrueba),
-        peor_prueba: formatearPrueba(peorPrueba),
+        total_aciertos:   aciertos,
+        total_errores:    errores,
+        ultima_sesion:    fmt(ultimaSesion),
+        mejor_prueba:     fmt(mejorPrueba),
+        peor_prueba:      fmt(peorPrueba),
       }
     })
 

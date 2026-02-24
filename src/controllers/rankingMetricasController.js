@@ -26,12 +26,17 @@ const calcularRangoFechas = (periodo) => {
   return { fechaInicio, fechaFin: ahora }
 }
 
-// Construye el where para Alcance/Pliometria según periodo
-const buildFechaWhere = (estado = "finalizada", fechaInicio, fechaFin) => {
-  const where = { estado }
-  if (fechaInicio) {
-    where.fecha = { [Op.between]: [fechaInicio, fechaFin] }
-  }
+// Where para Alcance: NO tiene columna "estado"
+const buildWhereAlcance = (fechaInicio, fechaFin) => {
+  const where = {}
+  if (fechaInicio) where.fecha = { [Op.between]: [fechaInicio, fechaFin] }
+  return where
+}
+
+// Where para Pliometria: SÍ tiene columna "estado"
+const buildWherePliometria = (fechaInicio, fechaFin) => {
+  const where = { estado: "finalizada" }
+  if (fechaInicio) where.fecha = { [Op.between]: [fechaInicio, fechaFin] }
   return where
 }
 
@@ -54,13 +59,13 @@ export const obtenerResultadosPersonalesAlcance = async (req, res) => {
     const { cuentaId } = req.params
     const { periodo = "general" } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
-    const whereAlcance = buildFechaWhere("finalizada", fechaInicio, fechaFin)
+    const whereAlcance = buildWhereAlcance(fechaInicio, fechaFin)
 
     const cuenta = await Cuenta.findOne({
       where: { id: cuentaId, rol: "jugador", activo: true },
       include: [
-        { model: Jugador,  as: "jugador",   required: true },
-        { model: Alcance,  as: "alcances",  where: whereAlcance, required: false },
+        { model: Jugador, as: "jugador",  required: true },
+        { model: Alcance, as: "alcances", where: whereAlcance, required: false },
       ],
     })
 
@@ -148,14 +153,14 @@ export const obtenerResultadosPersonalesPliometria = async (req, res) => {
     const { cuentaId } = req.params
     const { periodo = "general", tipo } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
-    const wherePlio = buildFechaWhere("finalizada", fechaInicio, fechaFin)
+    const wherePlio = buildWherePliometria(fechaInicio, fechaFin)
     if (tipo) wherePlio.tipo = tipo
 
     const cuenta = await Cuenta.findOne({
       where: { id: cuentaId, rol: "jugador", activo: true },
       include: [
-        { model: Jugador,     as: "jugador",      required: true },
-        { model: Pliometria,  as: "pliometrias",  where: wherePlio, required: false },
+        { model: Jugador,    as: "jugador",     required: true },
+        { model: Pliometria, as: "pliometrias", where: wherePlio, required: false },
       ],
     })
 
@@ -249,7 +254,7 @@ export const obtenerPosicionUsuarioAlcance = async (req, res) => {
     const { cuentaId } = req.params
     const { periodo = "general", posicion, carrera } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
-    const whereAlcance = buildFechaWhere("finalizada", fechaInicio, fechaFin)
+    const whereAlcance = buildWhereAlcance(fechaInicio, fechaFin)
 
     const cuentas = await Cuenta.findAll({
       where: { rol: "jugador", activo: true },
@@ -281,7 +286,7 @@ export const obtenerPosicionUsuarioPliometria = async (req, res) => {
     const { cuentaId } = req.params
     const { periodo = "general", posicion, carrera, tipo } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
-    const wherePlio = buildFechaWhere("finalizada", fechaInicio, fechaFin)
+    const wherePlio = buildWherePliometria(fechaInicio, fechaFin)
     if (tipo) wherePlio.tipo = tipo
 
     const cuentas = await Cuenta.findAll({
@@ -312,7 +317,7 @@ export const obtenerRankingAlcance = async (req, res) => {
   try {
     const { periodo = "general", posicion, carrera, limit = 5 } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
-    const whereAlcance = buildFechaWhere("finalizada", fechaInicio, fechaFin)
+    const whereAlcance = buildWhereAlcance(fechaInicio, fechaFin)
 
     const cuentas = await Cuenta.findAll({
       where: { rol: "jugador", activo: true },
@@ -347,7 +352,7 @@ export const obtenerRankingPliometria = async (req, res) => {
   try {
     const { periodo = "general", posicion, carrera, limit = 5, tipo } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
-    const wherePlio = buildFechaWhere("finalizada", fechaInicio, fechaFin)
+    const wherePlio = buildWherePliometria(fechaInicio, fechaFin)
     if (tipo) wherePlio.tipo = tipo
 
     const cuentas = await Cuenta.findAll({

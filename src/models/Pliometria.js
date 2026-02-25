@@ -28,11 +28,13 @@ export const Pliometria = sequelize.define(
     fuerzaizquierda: {
       type: DataTypes.FLOAT,
       allowNull: false,
+      defaultValue: 0,
       validate: { min: 0 },
     },
     fuerzaderecha: {
       type: DataTypes.FLOAT,
       allowNull: false,
+      defaultValue: 0,
       validate: { min: 0 },
     },
     aceleracion: {
@@ -47,6 +49,26 @@ export const Pliometria = sequelize.define(
       defaultValue: 0,
       validate: { min: 0 },
     },
+    // ── Nuevos campos ──────────────────────────────────────────────
+    cantidad_saltos: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      validate: { min: 0 },
+    },
+    indice_fatiga: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0,
+      validate: { min: 0 },
+    },
+    altura_promedio: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0,
+      validate: { min: 0 },
+    },
+    // ──────────────────────────────────────────────────────────────
     estado: {
       type: DataTypes.ENUM("pendiente", "en_curso", "finalizada"),
       allowNull: false,

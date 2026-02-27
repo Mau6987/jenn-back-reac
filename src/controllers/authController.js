@@ -27,7 +27,7 @@ export const login = async (req, res) => {
       data: {
         id: cuenta.id,
         rol: cuenta.rol,
-        nombre: cuenta.rol,
+        nombre: cuenta.nombre,
         token, // ya generado
       },
     })

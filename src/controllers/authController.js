@@ -1,4 +1,4 @@
-import { Cuenta } from "../models/index.js"
+import { Cuenta, Jugador, Entrenador, Tecnico } from "../models/index.js"
 import { generarToken } from "../utils/jwt.js"
 
 export const login = async (req, res) => {
@@ -7,6 +7,11 @@ export const login = async (req, res) => {
 
     const cuenta = await Cuenta.findOne({
       where: { usuario, activo: true },
+      include: [
+        { model: Jugador, as: "jugador" },
+        { model: Entrenador, as: "entrenador" },
+        { model: Tecnico, as: "tecnico" },
+      ],
     })
 
     if (!cuenta || !(await cuenta.verificarContrasena(contraseña))) {
@@ -17,9 +22,9 @@ export const login = async (req, res) => {
     }
 
     const token = generarToken({ id: cuenta.id, rol: cuenta.rol })
-
-    // Guardar token en la base de datos
     await cuenta.update({ token })
+
+    const persona = cuenta.jugador || cuenta.entrenador || cuenta.tecnico
 
     res.json({
       success: true,
@@ -27,8 +32,9 @@ export const login = async (req, res) => {
       data: {
         id: cuenta.id,
         rol: cuenta.rol,
-        nombre: cuenta.nombre,
-        token, // ya generado
+        nombres: persona?.nombres ?? null,
+        apellidos: persona?.apellidos ?? null,
+        token,
       },
     })
   } catch (error) {
@@ -39,7 +45,6 @@ export const login = async (req, res) => {
     })
   }
 }
-
 
 export const logout = async (req, res) => {
   try {

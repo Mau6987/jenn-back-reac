@@ -22,3 +22,4 @@ router.post("/", validarJugador, crearJugador)
 router.put("/:id", validarId, validarJugador, actualizarJugador)
 
 export default router
+  

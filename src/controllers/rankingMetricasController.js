@@ -328,7 +328,7 @@ export const obtenerRankingPliometria = async (req, res) => {
         { model: Jugador,    as: "jugador",     where: buildJugadorWhere({ posicion, carrera }), required: true },
         { model: Pliometria, as: "pliometrias", where: wherePlio, required: false },
       ],
-    })
+    })  
     const ranking = cuentas
       .map((c) => {
         const regs = c.pliometrias || []

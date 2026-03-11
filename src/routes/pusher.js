@@ -1,11 +1,24 @@
-// routes/espRoutes.js
-import express from "express";
-import { sendCommand, pusherAuth, testConnection} from "../controllers/pusherController.js";
+// routes/pusherRoutes.js
+import express from 'express';
+import {
+  pusherAuth,
+  pusherAuthB,
+  testConnection,
+  sendCommand,
+  sendCommandB,
+} from '../controllers/pusherController.js';
 
 const router = express.Router();
 
-// Y agrega la ruta en tus routes:
-router.get('/test', testConnection);
-router.post("/send-command", sendCommand);
-router.post('/pusher/auth', pusherAuth);
+// ─── Instancia A ──────────────────────────────────────────────────────────────
+router.post('/pusher/auth',    pusherAuth);
+router.post('/send-command',   sendCommand);
+
+// ─── Instancia B ──────────────────────────────────────────────────────────────
+router.post('/pusher/auth-b',  pusherAuthB);
+router.post('/send-command-b', sendCommandB);
+
+// ─── General ──────────────────────────────────────────────────────────────────
+router.get('/test-connection', testConnection);
+
 export default router;

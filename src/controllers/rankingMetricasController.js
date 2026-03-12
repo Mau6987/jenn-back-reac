@@ -5,18 +5,21 @@ import { Jugador } from "../models/Jugador.js"
 import { Alcance } from "../models/Alcance.js"
 import { Pliometria } from "../models/Pliometria.js"
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Tipos válidos ────────────────────────────────────────────────────────────
+const TIPOS_VALIDOS = ["salto simple", "salto conos"]
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const calcularRangoFechas = (periodo) => {
   const ahora = new Date()
   let fechaInicio = null
   switch ((periodo || "general").toLowerCase()) {
-    case "semanal":
+    case "semanal": {
       fechaInicio = new Date(ahora)
       const dow = ahora.getDay() === 0 ? 6 : ahora.getDay() - 1
       fechaInicio.setDate(ahora.getDate() - dow)
       fechaInicio.setHours(0, 0, 0, 0)
       break
+    }
     case "mensual":
       fechaInicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1)
       break
@@ -58,7 +61,6 @@ const calcIncremento = (sorted, target, campo) => {
   return fmt((target[campo] ?? 0) - (anterior[campo] ?? 0))
 }
 
-// Construye el objeto de una métrica con sus incrementos
 const buildMetrica = (sorted, mejorReg, peorReg, ultimo, campo) => ({
   actual:            fmt(ultimo?.[campo]),
   mejor:             fmt(mejorReg?.[campo]),
@@ -67,6 +69,21 @@ const buildMetrica = (sorted, mejorReg, peorReg, ultimo, campo) => ({
   incremento_mejor:  calcIncremento(sorted, mejorReg, campo),
   incremento_peor:   calcIncremento(sorted, peorReg,  campo),
 })
+
+// Enriquece un registro de pliometría con campos derivados
+const enriquecerPlio = (r) => ({
+  ...r.dataValues,
+  // fuerza total = suma de ambas piernas (en kg, tal como viene del ESP)
+  fuerzaTotal: fmt((r.fuerzaizquierda ?? 0) + (r.fuerzaderecha ?? 0)),
+})
+
+// Busca el mejor y peor registro por un campo dado
+const mejorPeorPor = (regs, campo) => {
+  const positivos = regs.filter((r) => (r[campo] ?? 0) > 0)
+  const mejor = positivos.length ? positivos.reduce((m, r) => r[campo] >= m[campo] ? r : m) : null
+  const peor  = positivos.length ? positivos.reduce((p, r) => r[campo] <= p[campo] ? r : p) : null
+  return { mejor, peor }
+}
 
 // ─── ALCANCE - Resultados personales ─────────────────────────────────────────
 export const obtenerResultadosPersonalesAlcance = async (req, res) => {
@@ -87,19 +104,11 @@ export const obtenerResultadosPersonalesAlcance = async (req, res) => {
     if (!cuenta) return res.status(404).json({ success: false, message: "Usuario no encontrado" })
 
     const regs   = cuenta.alcances || []
-    const total  = regs.length
     const sorted = ordenarPorFechaDesc(regs)
     const ultimo = sorted[0] ?? null
+    const { mejor: mejorReg, peor: peorReg } = mejorPeorPor(regs, "alcance")
 
-    const mejorReg = regs.length
-      ? regs.reduce((m, r) => (r.alcance ?? 0) >= (m.alcance ?? 0) ? r : m)
-      : null
-
-    const regsPos = regs.filter((r) => (r.alcance ?? 0) > 0)
-    const peorReg = regsPos.length
-      ? regsPos.reduce((p, r) => (r.alcance ?? 0) <= (p.alcance ?? 0) ? r : p)
-      : null
-
+    // Ranking general
     const todasCuentas = await Cuenta.findAll({
       where: { rol: "jugador", activo: true },
       include: [
@@ -127,7 +136,7 @@ export const obtenerResultadosPersonalesAlcance = async (req, res) => {
           posicion_principal: cuenta.jugador.posicion_principal,
         },
         estadisticas: {
-          total_registros: total,
+          total_registros: regs.length,
           alcance: buildMetrica(sorted, mejorReg, peorReg, ultimo, "alcance"),
         },
         ranking: { posicion, total_jugadores: itemsRanking.length },
@@ -140,11 +149,26 @@ export const obtenerResultadosPersonalesAlcance = async (req, res) => {
 }
 
 // ─── PLIOMETRÍA - Resultados personales ───────────────────────────────────────
+//
+// Campos del modelo usados según tipo:
+//
+// salto simple → cantidad_saltos, indice_fatiga, fuerzaizquierda, fuerzaderecha,
+//                altura_promedio (=alt_prom_cm), potencia, aceleracion
+//
+// salto conos  → cantidad_saltos, indice_fatiga, fuerzaizquierda (=pico_izq_kg),
+//                fuerzaderecha (=pico_der_kg), altura_promedio (=alt_max_cm)
+//                potencia y aceleracion NO aplican (quedan en 0)
+//
 export const obtenerResultadosPersonalesPliometria = async (req, res) => {
   try {
     const { cuentaId } = req.params
     const { periodo = "general", tipo } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
+
+    // Validar tipo
+    if (tipo && !TIPOS_VALIDOS.includes(tipo))
+      return res.status(400).json({ success: false, message: `tipo inválido. Permitidos: ${TIPOS_VALIDOS.join(", ")}` })
+
     const wherePlio = buildWherePliometria(fechaInicio, fechaFin)
     if (tipo) wherePlio.tipo = tipo
 
@@ -158,26 +182,12 @@ export const obtenerResultadosPersonalesPliometria = async (req, res) => {
 
     if (!cuenta) return res.status(404).json({ success: false, message: "Usuario no encontrado" })
 
-    const regs  = cuenta.pliometrias || []
-    const total = regs.length
+    const regs        = (cuenta.pliometrias || []).map(enriquecerPlio)
+    const sorted      = ordenarPorFechaDesc(regs)
+    const ultimo      = sorted[0] ?? null
 
-    // Enriquecer con fuerzaTotal
-    const enriquecidos = regs.map((r) => ({
-      ...r.dataValues,
-      fuerzaTotal: (r.fuerzaizquierda ?? 0) + (r.fuerzaderecha ?? 0),
-    }))
-
-    const sorted = ordenarPorFechaDesc(enriquecidos)
-    const ultimo = sorted[0] ?? null
-
-    // Mejor y peor por fuerzaTotal
-    const mejorReg = enriquecidos.length
-      ? enriquecidos.reduce((m, r) => r.fuerzaTotal >= m.fuerzaTotal ? r : m)
-      : null
-    const enrPos  = enriquecidos.filter((r) => r.fuerzaTotal > 0)
-    const peorReg = enrPos.length
-      ? enrPos.reduce((p, r) => r.fuerzaTotal <= p.fuerzaTotal ? r : p)
-      : null
+    // Usamos fuerzaTotal como métrica principal para elegir mejor/peor
+    const { mejor: mejorReg, peor: peorReg } = mejorPeorPor(regs, "fuerzaTotal")
 
     // Ranking
     const todasCuentas = await Cuenta.findAll({
@@ -189,11 +199,29 @@ export const obtenerResultadosPersonalesPliometria = async (req, res) => {
     })
     const itemsRanking = todasCuentas
       .map((c) => {
-        const ft = (c.pliometrias || []).map((r) => (r.fuerzaizquierda ?? 0) + (r.fuerzaderecha ?? 0))
-        return { cuentaId: c.id, mejor_fuerza_total: ft.reduce((m, v) => Math.max(m, v), 0) }
+        const enr = (c.pliometrias || []).map(enriquecerPlio)
+        return {
+          cuentaId: c.id,
+          mejor_fuerza_total: enr.reduce((m, r) => Math.max(m, r.fuerzaTotal ?? 0), 0),
+        }
       })
       .sort((a, b) => b.mejor_fuerza_total - a.mejor_fuerza_total)
     const posicion = itemsRanking.findIndex((i) => i.cuentaId === Number(cuentaId)) + 1
+
+    // Estadísticas — se construyen siempre; para salto conos potencia y aceleracion estarán en 0
+    const estadisticas = {
+      total_registros: regs.length,
+      cantidad_saltos: buildMetrica(sorted, mejorReg, peorReg, ultimo, "cantidad_saltos"),
+      indice_fatiga:   buildMetrica(sorted, mejorReg, peorReg, ultimo, "indice_fatiga"),
+      fuerza:          buildMetrica(sorted, mejorReg, peorReg, ultimo, "fuerzaTotal"),
+      altura_promedio: buildMetrica(sorted, mejorReg, peorReg, ultimo, "altura_promedio"),
+    }
+
+    // Solo incluir potencia y aceleración para salto simple
+    if (!tipo || tipo === "salto simple") {
+      estadisticas.potencia    = buildMetrica(sorted, mejorReg, peorReg, ultimo, "potencia")
+      estadisticas.aceleracion = buildMetrica(sorted, mejorReg, peorReg, ultimo, "aceleracion")
+    }
 
     res.json({
       success: true,
@@ -207,15 +235,7 @@ export const obtenerResultadosPersonalesPliometria = async (req, res) => {
           carrera:            cuenta.jugador.carrera,
           posicion_principal: cuenta.jugador.posicion_principal,
         },
-        estadisticas: {
-          total_registros: total,
-          fuerza:           buildMetrica(sorted, mejorReg, peorReg, ultimo, "fuerzaTotal"),
-          potencia:         buildMetrica(sorted, mejorReg, peorReg, ultimo, "potencia"),
-          aceleracion:      buildMetrica(sorted, mejorReg, peorReg, ultimo, "aceleracion"),
-          cantidad_saltos:  buildMetrica(sorted, mejorReg, peorReg, ultimo, "cantidad_saltos"),
-          indice_fatiga:    buildMetrica(sorted, mejorReg, peorReg, ultimo, "indice_fatiga"),
-          altura_promedio:  buildMetrica(sorted, mejorReg, peorReg, ultimo, "altura_promedio"),
-        },
+        estadisticas,
         ranking: { posicion, total_jugadores: itemsRanking.length },
       },
     })
@@ -271,8 +291,8 @@ export const obtenerPosicionUsuarioPliometria = async (req, res) => {
     })
     const items = cuentas
       .map((c) => {
-        const ft = (c.pliometrias || []).map((r) => (r.fuerzaizquierda ?? 0) + (r.fuerzaderecha ?? 0))
-        return { cuentaId: c.id, mejor_fuerza_total: ft.reduce((m, v) => Math.max(m, v), 0) }
+        const enr = (c.pliometrias || []).map(enriquecerPlio)
+        return { cuentaId: c.id, mejor_fuerza_total: enr.reduce((m, r) => Math.max(m, r.fuerzaTotal ?? 0), 0) }
       })
       .sort((a, b) => b.mejor_fuerza_total - a.mejor_fuerza_total)
     const idx = items.findIndex(({ cuentaId: id }) => id === Number(cuentaId))
@@ -319,31 +339,36 @@ export const obtenerRankingAlcance = async (req, res) => {
 export const obtenerRankingPliometria = async (req, res) => {
   try {
     const { periodo = "general", posicion, carrera, limit = 5, tipo } = req.query
+
+    if (tipo && !TIPOS_VALIDOS.includes(tipo))
+      return res.status(400).json({ success: false, message: `tipo inválido. Permitidos: ${TIPOS_VALIDOS.join(", ")}` })
+
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
     const wherePlio = buildWherePliometria(fechaInicio, fechaFin)
     if (tipo) wherePlio.tipo = tipo
+
     const cuentas = await Cuenta.findAll({
       where: { rol: "jugador", activo: true },
       include: [
         { model: Jugador,    as: "jugador",     where: buildJugadorWhere({ posicion, carrera }), required: true },
         { model: Pliometria, as: "pliometrias", where: wherePlio, required: false },
       ],
-    })  
+    })
     const ranking = cuentas
       .map((c) => {
-        const regs = c.pliometrias || []
-        const ft   = regs.map((r) => (r.fuerzaizquierda ?? 0) + (r.fuerzaderecha ?? 0))
+        const enr = (c.pliometrias || []).map(enriquecerPlio)
         return {
           cuentaId: c.id,
           jugador: { nombres: c.jugador.nombres, apellidos: c.jugador.apellidos, posicion_principal: c.jugador.posicion_principal },
-          total_registros:    regs.length,
-          mejor_fuerza_total: fmt(ft.reduce((m, v) => Math.max(m, v), 0)),
-          mejor_potencia:     fmt(regs.reduce((m, r) => Math.max(m, r.potencia ?? 0), 0)),
+          total_registros:    enr.length,
+          mejor_fuerza_total: fmt(enr.reduce((m, r) => Math.max(m, r.fuerzaTotal ?? 0), 0)),
+          mejor_altura:       fmt(enr.reduce((m, r) => Math.max(m, r.altura_promedio ?? 0), 0)),
+          mejor_cantidad:     enr.reduce((m, r) => Math.max(m, r.cantidad_saltos ?? 0), 0),
         }
       })
       .sort((a, b) => b.mejor_fuerza_total - a.mejor_fuerza_total)
       .slice(0, Number(limit))
-    res.json({ success: true, data: { periodo, top: ranking } })
+    res.json({ success: true, data: { periodo, filtros: { tipo: tipo || "todos" }, top: ranking } })
   } catch (error) {
     console.error("Error obtenerRankingPliometria:", error)
     res.status(500).json({ success: false, message: "Error", error: error.message })

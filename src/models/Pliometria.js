@@ -16,7 +16,7 @@ export const Pliometria = sequelize.define(
       references: { model: "cuentas", key: "id" },
     },
     tipo: {
-      type: DataTypes.ENUM("salto cajon", "salto simple", "salto valla"),
+      type: DataTypes.ENUM("salto cajon", "salto simple", "salto conos"),
       allowNull: false,
     },
     tiempo: {
@@ -39,13 +39,13 @@ export const Pliometria = sequelize.define(
     },
     aceleracion: {
       type: DataTypes.FLOAT,
-      allowNull: false,
+      allowNull: true,
       defaultValue: 0,
       validate: { min: 0 },
     },
     potencia: {
       type: DataTypes.FLOAT,
-      allowNull: false,
+      allowNull: true,
       defaultValue: 0,
       validate: { min: 0 },
     },

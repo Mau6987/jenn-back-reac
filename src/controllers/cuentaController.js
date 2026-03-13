@@ -18,6 +18,30 @@ const convertirBase64ABuffer = (imagenBase64) => {
   return Buffer.from(imagenBase64.replace(/^data:image\/\w+;base64,/, ""), "base64")
 }
 
+const sanitizarDatosJugador = (datos) => {
+  const resultado = { ...datos }
+
+  // Campos DECIMAL — Sequelize los necesita como número, no string
+  const camposDecimal = ["altura", "alcance_estatico"]
+  camposDecimal.forEach((campo) => {
+    if (resultado[campo] !== undefined && resultado[campo] !== "") {
+      resultado[campo] = parseFloat(resultado[campo])
+    } else if (resultado[campo] === "") {
+      resultado[campo] = null // allowNull: true en el modelo
+    }
+  })
+
+  // Campos INTEGER
+  const camposInteger = ["anos_experiencia_voley"]
+  camposInteger.forEach((campo) => {
+    if (resultado[campo] !== undefined && resultado[campo] !== "") {
+      resultado[campo] = parseInt(resultado[campo], 10)
+    }
+  })
+
+  return resultado
+}
+
 // ========================= OBTENER CUENTAS =========================
 export const obtenerCuentas = async (req, res) => {
   try {
@@ -54,7 +78,6 @@ export const obtenerCuenta = async (req, res) => {
         { model: Tecnico, as: "tecnico" },
       ],
     })
-//asd
 
     if (!cuenta) return res.status(404).json({ success: false, message: "Cuenta no encontrada" })
 
@@ -91,7 +114,7 @@ export const crearCuenta = async (req, res) => {
       case "jugador":
         registro = await Jugador.create(
           {
-            ...datosPersonales,
+            ...sanitizarDatosJugador(datosPersonales),
             cuentaId: cuenta.id,
             imagen: convertirBase64ABuffer(imagen),
           },
@@ -168,13 +191,13 @@ export const actualizarCuenta = async (req, res) => {
     const Modelo = modeloMap[cuenta.rol]
 
     if (Modelo && Object.keys(datosPersonales).length > 0) {
-      const dataToUpdate = { ...datosPersonales }
+      const dataToUpdate =
+        cuenta.rol === "jugador"
+          ? sanitizarDatosJugador(datosPersonales)
+          : { ...datosPersonales }
 
-      if (cuenta.rol === "jugador") {
-        if (imagen !== undefined) {
-          dataToUpdate.imagen = convertirBase64ABuffer(imagen)
-        }
-        // Los campos de jugador incluyendo alcance_estatico se actualizan automáticamente
+      if (cuenta.rol === "jugador" && imagen !== undefined) {
+        dataToUpdate.imagen = convertirBase64ABuffer(imagen)
       } else if (cuenta.rol === "entrenador" && imagen !== undefined) {
         dataToUpdate.imagen = convertirBase64ABuffer(imagen)
       }
@@ -267,14 +290,15 @@ export const actualizarPerfil = async (req, res) => {
 
     const modeloMap = { jugador: Jugador, entrenador: Entrenador, tecnico: Tecnico }
     const Modelo = modeloMap[cuenta.rol]
-    if (Modelo && Object.keys(datosPersonales).length > 0) {
-      const dataToUpdate = { ...datosPersonales }
 
-      if (cuenta.rol === "jugador") {
-        if (imagen !== undefined) {
-          dataToUpdate.imagen = convertirBase64ABuffer(imagen)
-        }
-        // Los campos de jugador incluyendo alcance_estatico se actualizan automáticamente
+    if (Modelo && Object.keys(datosPersonales).length > 0) {
+      const dataToUpdate =
+        cuenta.rol === "jugador"
+          ? sanitizarDatosJugador(datosPersonales)
+          : { ...datosPersonales }
+
+      if (cuenta.rol === "jugador" && imagen !== undefined) {
+        dataToUpdate.imagen = convertirBase64ABuffer(imagen)
       } else if (cuenta.rol === "entrenador" && imagen !== undefined) {
         dataToUpdate.imagen = convertirBase64ABuffer(imagen)
       }

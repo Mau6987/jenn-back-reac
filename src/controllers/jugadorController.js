@@ -34,6 +34,30 @@ const convertirBase64ABuffer = (imagenBase64) => {
   return Buffer.from(imagenBase64.replace(/^data:image\/\w+;base64,/, ""), "base64")
 }
 
+const sanitizarDatosJugador = (datos) => {
+  const resultado = { ...datos }
+
+  // Campos DECIMAL — Sequelize los necesita como número, no string
+  const camposDecimal = ["altura", "alcance_estatico"]
+  camposDecimal.forEach((campo) => {
+    if (resultado[campo] !== undefined && resultado[campo] !== "") {
+      resultado[campo] = parseFloat(resultado[campo])
+    } else if (resultado[campo] === "") {
+      resultado[campo] = null // allowNull: true en el modelo
+    }
+  })
+
+  // Campos INTEGER
+  const camposInteger = ["anos_experiencia_voley"]
+  camposInteger.forEach((campo) => {
+    if (resultado[campo] !== undefined && resultado[campo] !== "") {
+      resultado[campo] = parseInt(resultado[campo], 10)
+    }
+  })
+
+  return resultado
+}
+
 export const crearJugador = async (req, res) => {
   try {
     const {
@@ -90,9 +114,9 @@ export const crearJugador = async (req, res) => {
       carrera,
       posicion_principal,
       fecha_nacimiento,
-      altura,
-      alcance_estatico,
-      anos_experiencia_voley,
+      altura: parseFloat(altura),
+      alcance_estatico: alcance_estatico !== undefined && alcance_estatico !== "" ? parseFloat(alcance_estatico) : null,
+      anos_experiencia_voley: parseInt(anos_experiencia_voley, 10),
       correo_institucional,
       numero_celular,
       cuentaId,
@@ -249,9 +273,7 @@ export const actualizarJugador = async (req, res) => {
 
     const { imagen, ...otros } = req.body
 
-    const datosActualizacion = {
-      ...otros,
-    }
+    const datosActualizacion = sanitizarDatosJugador(otros)
 
     // Solo actualizar imagen si se proporciona
     if (imagen !== undefined) {

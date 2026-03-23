@@ -7,13 +7,15 @@ import { fileURLToPath } from "url"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Carpeta destino: src/uploads/imagenes
+// ✅ Subir dos niveles desde middlewares/ hasta llegar a la raíz del proyecto
 const uploadDir = path.join(__dirname, "..", "..", "uploads", "imagenes")
 
-// Crear la carpeta si no existe
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true })
 }
+
+// 👇 Log para confirmar la ruta
+console.log("📁 Guardando imágenes en:", uploadDir)
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -38,5 +40,5 @@ const fileFilter = (req, file, cb) => {
 export const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
 })

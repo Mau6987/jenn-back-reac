@@ -6,13 +6,16 @@ import { fileURLToPath } from "url"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+// ✅ Subir dos niveles desde controllers/ hasta la raíz del proyecto
+const uploadsBase = path.join(__dirname, "..", "..", "uploads", "imagenes")
+
 export const subirImagen = (req, res) => {
+  console.log("📁 req.file:", req.file) // 👈 confirmar que llega
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No se recibió ninguna imagen" })
     }
 
-    // Path relativo que se guardará en la BD
     const filePath = `/uploads/imagenes/${req.file.filename}`
 
     res.json({
@@ -29,7 +32,7 @@ export const subirImagen = (req, res) => {
 export const eliminarImagen = (req, res) => {
   try {
     const { filename } = req.params
-    const filePath = path.join(__dirname, "..", "uploads", "imagenes", filename)
+    const filePath = path.join(uploadsBase, filename)
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ success: false, message: "Imagen no encontrada" })

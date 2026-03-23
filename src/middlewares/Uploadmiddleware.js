@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // Carpeta destino: src/uploads/imagenes
-const uploadDir = path.join(__dirname, "..", "uploads", "imagenes")
+const uploadDir = path.join(__dirname, "..", "..", "uploads", "imagenes")
 
 // Crear la carpeta si no existe
 if (!fs.existsSync(uploadDir)) {

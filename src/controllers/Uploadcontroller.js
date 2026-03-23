@@ -1,44 +1,46 @@
-// controllers/uploadController.js
-import path from "path"
-import fs from "fs"
-import { fileURLToPath } from "url"
+import { v2 as cloudinary } from "cloudinary"
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
-// ✅ Subir dos niveles desde controllers/ hasta la raíz del proyecto
-const uploadsBase = path.join(__dirname, "..", "..", "uploads", "imagenes")
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+})
 
 export const subirImagen = (req, res) => {
-  console.log("📁 req.file:", req.file) // 👈 confirmar que llega
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No se recibió ninguna imagen" })
     }
 
-    const filePath = `/uploads/imagenes/${req.file.filename}`
+    // Subir buffer directamente a Cloudinary
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: "volleyapp" },
+      (error, result) => {
+        if (error) {
+          console.error("Error Cloudinary:", error)
+          return res.status(500).json({ success: false, message: "Error al subir imagen" })
+        }
 
-    res.json({
-      success: true,
-      message: "Imagen subida correctamente",
-      data: { path: filePath },
-    })
+        res.json({
+          success: true,
+          message: "Imagen subida correctamente",
+          data: { path: result.secure_url }, // ✅ URL pública permanente
+        })
+      }
+    )
+
+    stream.end(req.file.buffer)
   } catch (error) {
     console.error("Error al subir imagen:", error)
     res.status(500).json({ success: false, message: "Error al subir imagen", error: error.message })
   }
 }
 
-export const eliminarImagen = (req, res) => {
+export const eliminarImagen = async (req, res) => {
   try {
     const { filename } = req.params
-    const filePath = path.join(uploadsBase, filename)
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ success: false, message: "Imagen no encontrada" })
-    }
-
-    fs.unlinkSync(filePath)
+    // filename aquí sería el public_id de Cloudinary
+    await cloudinary.uploader.destroy(`volleyapp/${filename}`)
     res.json({ success: true, message: "Imagen eliminada correctamente" })
   } catch (error) {
     console.error("Error al eliminar imagen:", error)

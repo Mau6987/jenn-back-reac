@@ -4,17 +4,17 @@ import { Tecnico } from "../models/Tecnico.js"
 
 const tecnicoData = {
   cuenta: {
-    usuario: "mlopez",
-    contraseña: "password123",
+    usuario: "jennros",
+    contraseña: "jennros",
     rol: "tecnico",
     activo: true,
   },
   tecnico: {
-    nombres: "Miguel Ángel",
-    apellidos: "López Fernández",
-    correo_institucional: "miguel.lopez@universidad.edu",
-    numero_celular: "987654331",
-    fecha_nacimiento: "1990-06-20",
+    nombres: "Jennifer Roscio ",
+    apellidos: "Trevino Camacho",
+    correo_institucional: "jenntrev@gmail.com",
+    numero_celular: "60352275",
+    fecha_nacimiento: "2001-11-06",
   },
 }
 

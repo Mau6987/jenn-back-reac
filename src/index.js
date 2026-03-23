@@ -2,23 +2,27 @@ import express from "express"
 import helmet from "helmet"
 import cors from "cors"
 import dotenv from "dotenv"
+import path from "path"
+import { fileURLToPath } from "url"
 import { connectDB } from "./config/database.js"
 
-// Importar rutas
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
 import authRoutes from "./routes/auth.js"
 import cuentasRoutes from "./routes/cuentas.js"
 import jugadoresRoutes from "./routes/jugadores.js"
 import entrenadorRoutes from "./routes/entrenadores.js"
 import tecnicoRoutes from "./routes/tecnicos.js"
 import pusherRoutes from "./routes/pusher.js"
-import reaccionRoutes from "./routes/Reacciones.js"
+import reaccionRoutes from "./routes/reacciones.js"
 import rankingRoutes from "./routes/ranking.js"
 import horarioRoutes from "./routes/horarioRoutes.js"
-import saltoRoutes from "./routes/Saltoroutes.js"
+import saltoRoutes from "./routes/saltoRoutes.js"
 import alcanceRoutes from "./routes/alcanceRoutes.js"
 import rankingMetricasRoutes from "./routes/rankingMetricasRoutes.js"
+import uploadRoutes from "./routes/Uploadroutes.js"
 
-// Importar modelos para establecer asociaciones
 import "./models/index.js"
 
 dotenv.config()
@@ -26,15 +30,14 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 3000
 
-// Middlewares de seguridad
-app.use(helmet())
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }))
 app.use(cors())
-
-// Middlewares de parsing
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-// Middleware de logging en desarrollo
+// Servir imágenes estáticas
+app.use("/uploads", express.static(path.join(__dirname, "uploads")))
+
 if (process.env.NODE_ENV === "development") {
   app.use((req, res, next) => {
     console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`)
@@ -42,16 +45,10 @@ if (process.env.NODE_ENV === "development") {
   })
 }
 
-// Health check
 app.get("/", (req, res) => {
-  res.json({
-    success: true,
-    message: "Servidor funcionando correctamente",
-    timestamp: new Date().toISOString(),
-  })
+  res.json({ success: true, message: "Servidor funcionando correctamente", timestamp: new Date().toISOString() })
 })
 
-// Rutas de la API
 app.use("/api/auth", authRoutes)
 app.use("/api/cuentas", cuentasRoutes)
 app.use("/api/jugadores", jugadoresRoutes)
@@ -64,8 +61,8 @@ app.use("/api/ranking", rankingMetricasRoutes)
 app.use("/api/horarios", horarioRoutes)
 app.use("/api/saltos", saltoRoutes)
 app.use("/api/alcances", alcanceRoutes)
+app.use("/api/upload", uploadRoutes)
 
-// Middleware de manejo de errores global
 app.use((err, req, res, next) => {
   console.error("Error:", err)
   res.status(500).json({
@@ -75,15 +72,10 @@ app.use((err, req, res, next) => {
   })
 })
 
-// Middleware para rutas no encontradas
 app.use("*", (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Ruta no encontrada",
-  })
+  res.status(404).json({ success: false, message: "Ruta no encontrada" })
 })
 
-// Iniciar servidor
 async function startServer() {
   try {
     await connectDB()

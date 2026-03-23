@@ -1,22 +1,4 @@
-import { Buffer } from "buffer"
 import { Jugador, Cuenta } from "../models/index.js"
-
-const validarImagenBase64 = (imagen) => {
-  if (!imagen) return true
-
-  const base64Pattern = /^data:image\/(png|jpg|jpeg|gif|webp);base64,/
-  if (!base64Pattern.test(imagen)) {
-    return false
-  }
-
-  const sizeInBytes = (imagen.length * 3) / 4
-  const maxSize = 5 * 1024 * 1024 // 5MB
-  if (sizeInBytes > maxSize) {
-    return false
-  }
-
-  return true
-}
 
 const calcularEdad = (fechaNacimiento) => {
   const hoy = new Date()
@@ -27,11 +9,6 @@ const calcularEdad = (fechaNacimiento) => {
     edad--
   }
   return edad
-}
-
-const convertirBase64ABuffer = (imagenBase64) => {
-  if (!imagenBase64) return null
-  return Buffer.from(imagenBase64.replace(/^data:image\/\w+;base64,/, ""), "base64")
 }
 
 const sanitizarDatosJugador = (datos) => {
@@ -72,16 +49,7 @@ export const crearJugador = async (req, res) => {
       correo_institucional,
       numero_celular,
       cuentaId,
-      imagen,
     } = req.body
-
-    if (imagen && !validarImagenBase64(imagen)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Formato de imagen inválido. Debe ser una imagen base64 válida (PNG, JPG, JPEG, GIF, WEBP) menor a 5MB",
-      })
-    }
 
     // Validar fecha de nacimiento
     if (!fecha_nacimiento || isNaN(Date.parse(fecha_nacimiento))) {
@@ -120,7 +88,6 @@ export const crearJugador = async (req, res) => {
       correo_institucional,
       numero_celular,
       cuentaId,
-      imagen: convertirBase64ABuffer(imagen),
     })
 
     res.status(201).json({
@@ -222,14 +189,6 @@ export const actualizarJugador = async (req, res) => {
   try {
     const { id } = req.params
 
-    if (req.body.imagen && !validarImagenBase64(req.body.imagen)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Formato de imagen inválido. Debe ser una imagen base64 válida (PNG, JPG, JPEG, GIF, WEBP) menor a 5MB",
-      })
-    }
-
     const jugador = await Jugador.findOne({
       where: { id },
       include: [
@@ -271,14 +230,7 @@ export const actualizarJugador = async (req, res) => {
       }
     }
 
-    const { imagen, ...otros } = req.body
-
-    const datosActualizacion = sanitizarDatosJugador(otros)
-
-    // Solo actualizar imagen si se proporciona
-    if (imagen !== undefined) {
-      datosActualizacion.imagen = convertirBase64ABuffer(imagen)
-    }
+    const datosActualizacion = sanitizarDatosJugador(req.body)
 
     await jugador.update(datosActualizacion)
 

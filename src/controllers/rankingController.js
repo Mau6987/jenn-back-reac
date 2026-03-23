@@ -1,11 +1,10 @@
 // controllers/rankingController.js
-import { Prueba } from "../models/Prueba.js"
+import { Reaccion } from "../models/Reaccion.js"
 import { Cuenta } from "../models/Cuenta.js"
 import { Jugador } from "../models/Jugador.js"
 import { Op } from "sequelize"
 
 // ─── Rango de fechas ──────────────────────────────────────────────────────────
-// Acepta: desde/hasta (ISO strings) con prioridad, o periodo legacy
 const calcularRangoFechas = (desde, hasta, periodo) => {
   const ahora = new Date()
 
@@ -20,7 +19,6 @@ const calcularRangoFechas = (desde, hasta, periodo) => {
   switch (periodo) {
     case "semanal":
       fechaInicio = new Date(ahora)
-      // Inicio de la semana actual (lunes)
       const dayOfWeek = ahora.getDay() === 0 ? 6 : ahora.getDay() - 1
       fechaInicio.setDate(ahora.getDate() - dayOfWeek)
       fechaInicio.setHours(0, 0, 0, 0)
@@ -35,42 +33,40 @@ const calcularRangoFechas = (desde, hasta, periodo) => {
   return { fechaInicio, fechaFin: ahora }
 }
 
-// ─── Calcular precisión de una lista de pruebas ───────────────────────────────
-// Precisión = (Aciertos / (Aciertos + Fallos)) × 100
-// Se calcula como PROMEDIO de la precisión de cada prueba individual
-const calcularPrecision = (pruebas) => {
-  if (!pruebas || pruebas.length === 0) return 0
+// ─── Calcular precisión de una lista de reacciones ───────────────────────────
+const calcularPrecision = (reacciones) => {
+  if (!reacciones || reacciones.length === 0) return 0
 
-  const pruebasConDatos = pruebas.filter((p) => {
-    const a = p.cantidad_aciertos || 0
-    const e = p.cantidad_errores  || 0
+  const reaccionesConDatos = reacciones.filter((r) => {
+    const a = r.cantidad_aciertos || 0
+    const e = r.cantidad_errores  || 0
     return (a + e) > 0
   })
 
-  if (pruebasConDatos.length === 0) return 0
+  if (reaccionesConDatos.length === 0) return 0
 
-  const sumaPrecisiones = pruebasConDatos.reduce((sum, p) => {
-    const a = p.cantidad_aciertos || 0
-    const e = p.cantidad_errores  || 0
+  const sumaPrecisiones = reaccionesConDatos.reduce((sum, r) => {
+    const a = r.cantidad_aciertos || 0
+    const e = r.cantidad_errores  || 0
     return sum + (a / (a + e)) * 100
   }, 0)
 
-  return sumaPrecisiones / pruebasConDatos.length
+  return sumaPrecisiones / reaccionesConDatos.length
 }
 
-// ─── Estadísticas por tipo de prueba ─────────────────────────────────────────
-const calcularEstadisticasPorTipo = (pruebas) => {
+// ─── Estadísticas por tipo de reacción ───────────────────────────────────────
+const calcularEstadisticasPorTipo = (reacciones) => {
   const tipos = ["manual", "secuencial", "aleatorio"]
   const resultado = {}
 
   tipos.forEach((tipo) => {
-    const pruebasTipo = pruebas.filter((p) => p.tipo === tipo)
-    const aciertos   = pruebasTipo.reduce((s, p) => s + (p.cantidad_aciertos || 0), 0)
-    const errores    = pruebasTipo.reduce((s, p) => s + (p.cantidad_errores  || 0), 0)
-    const precision  = calcularPrecision(pruebasTipo)
+    const reaccionesTipo = reacciones.filter((r) => r.tipo === tipo)
+    const aciertos  = reaccionesTipo.reduce((s, r) => s + (r.cantidad_aciertos || 0), 0)
+    const errores   = reaccionesTipo.reduce((s, r) => s + (r.cantidad_errores  || 0), 0)
+    const precision = calcularPrecision(reaccionesTipo)
 
     resultado[tipo] = {
-      total_realizadas: pruebasTipo.length,
+      total_realizadas: reaccionesTipo.length,
       total_aciertos:   aciertos,
       total_errores:    errores,
       precision:        Number(precision.toFixed(2)),
@@ -81,29 +77,29 @@ const calcularEstadisticasPorTipo = (pruebas) => {
 }
 
 // ─── Formatear jugador para ranking ──────────────────────────────────────────
-const formatearJugador = (cuenta, pruebas) => {
-  const totalAciertos = pruebas.reduce((s, p) => s + (p.cantidad_aciertos || 0), 0)
-  const totalErrores  = pruebas.reduce((s, p) => s + (p.cantidad_errores  || 0), 0)
-  const totalIntentos = pruebas.reduce((s, p) => s + (p.cantidad_intentos || (p.cantidad_aciertos || 0) + (p.cantidad_errores || 0)), 0)
-  const precision     = calcularPrecision(pruebas)
+const formatearJugador = (cuenta, reacciones) => {
+  const totalAciertos = reacciones.reduce((s, r) => s + (r.cantidad_aciertos || 0), 0)
+  const totalErrores  = reacciones.reduce((s, r) => s + (r.cantidad_errores  || 0), 0)
+  const totalIntentos = reacciones.reduce((s, r) => s + (r.cantidad_intentos || (r.cantidad_aciertos || 0) + (r.cantidad_errores || 0)), 0)
+  const precision     = calcularPrecision(reacciones)
 
   return {
     cuentaId: cuenta.id,
     jugador: {
-      id:                  cuenta.jugador.id,
-      nombres:             cuenta.jugador.nombres,
-      apellidos:           cuenta.jugador.apellidos,
-      carrera:             cuenta.jugador.carrera,
-      posicion_principal:  cuenta.jugador.posicion_principal,
+      id:                 cuenta.jugador.id,
+      nombres:            cuenta.jugador.nombres,
+      apellidos:          cuenta.jugador.apellidos,
+      carrera:            cuenta.jugador.carrera,
+      posicion_principal: cuenta.jugador.posicion_principal,
     },
     totales_generales: {
-      total_pruebas:   pruebas.length,
-      total_intentos:  totalIntentos,
-      total_aciertos:  totalAciertos,
-      total_errores:   totalErrores,
-      precision:       Number(precision.toFixed(2)),
+      total_reacciones: reacciones.length,
+      total_intentos:   totalIntentos,
+      total_aciertos:   totalAciertos,
+      total_errores:    totalErrores,
+      precision:        Number(precision.toFixed(2)),
     },
-    por_tipo_prueba: calcularEstadisticasPorTipo(pruebas),
+    por_tipo_reaccion: calcularEstadisticasPorTipo(reacciones),
   }
 }
 
@@ -114,7 +110,7 @@ export const obtenerResultadosPersonales = async (req, res) => {
     const { desde, hasta, periodo = "general" } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(desde, hasta, periodo)
 
-    const pruebas = await Prueba.findAll({
+    const reacciones = await Reaccion.findAll({
       where: {
         cuentaId,
         estado: "finalizada",
@@ -123,46 +119,46 @@ export const obtenerResultadosPersonales = async (req, res) => {
       order: [["fecha", "DESC"], ["tiempo_fin", "DESC"]],
     })
 
-    const totalAciertos = pruebas.reduce((s, p) => s + (p.cantidad_aciertos || 0), 0)
-    const totalErrores  = pruebas.reduce((s, p) => s + (p.cantidad_errores  || 0), 0)
-    const totalIntentos = pruebas.reduce((s, p) => s + (p.cantidad_intentos || (p.cantidad_aciertos || 0) + (p.cantidad_errores || 0)), 0)
-    const precision     = calcularPrecision(pruebas)
+    const totalAciertos = reacciones.reduce((s, r) => s + (r.cantidad_aciertos || 0), 0)
+    const totalErrores  = reacciones.reduce((s, r) => s + (r.cantidad_errores  || 0), 0)
+    const totalIntentos = reacciones.reduce((s, r) => s + (r.cantidad_intentos || (r.cantidad_aciertos || 0) + (r.cantidad_errores || 0)), 0)
+    const precision     = calcularPrecision(reacciones)
 
     const tipos = ["manual", "secuencial", "aleatorio"]
     const estadisticasPorTipo = {}
 
-    const getRatio = (p) => {
-      const a = p.cantidad_aciertos || 0
-      const e = p.cantidad_errores  || 0
+    const getRatio = (r) => {
+      const a = r.cantidad_aciertos || 0
+      const e = r.cantidad_errores  || 0
       return (a + e) > 0 ? a / (a + e) : 0
     }
 
     tipos.forEach((tipo) => {
-      const pt = pruebas.filter((p) => p.tipo === tipo)
-      const a  = pt.reduce((s, p) => s + (p.cantidad_aciertos || 0), 0)
-      const e  = pt.reduce((s, p) => s + (p.cantidad_errores  || 0), 0)
+      const rt = reacciones.filter((r) => r.tipo === tipo)
+      const a  = rt.reduce((s, r) => s + (r.cantidad_aciertos || 0), 0)
+      const e  = rt.reduce((s, r) => s + (r.cantidad_errores  || 0), 0)
 
-      const ultimaSesion = pt.length > 0 ? pt[0] : null
-      const mejorPrueba  = pt.length > 0 ? pt.reduce((best, cur) => getRatio(cur) > getRatio(best) ? cur : best) : null
-      const peorPrueba   = pt.length > 0 ? pt.reduce((worst, cur) => getRatio(cur) < getRatio(worst) ? cur : worst) : null
+      const ultimaSesion  = rt.length > 0 ? rt[0] : null
+      const mejorReaccion = rt.length > 0 ? rt.reduce((best, cur) => getRatio(cur) > getRatio(best) ? cur : best) : null
+      const peorReaccion  = rt.length > 0 ? rt.reduce((worst, cur) => getRatio(cur) < getRatio(worst) ? cur : worst) : null
 
-      const fmt = (p) => p ? {
-        id:       p.id,
-        fecha:    p.fecha,
-        aciertos: p.cantidad_aciertos || 0,
-        errores:  p.cantidad_errores  || 0,
-        intentos: p.cantidad_intentos || (p.cantidad_aciertos || 0) + (p.cantidad_errores || 0),
-        precision: Number(((getRatio(p)) * 100).toFixed(2)),
+      const fmt = (r) => r ? {
+        id:       r.id,
+        fecha:    r.fecha,
+        aciertos: r.cantidad_aciertos || 0,
+        errores:  r.cantidad_errores  || 0,
+        intentos: r.cantidad_intentos || (r.cantidad_aciertos || 0) + (r.cantidad_errores || 0),
+        precision: Number(((getRatio(r)) * 100).toFixed(2)),
       } : null
 
       estadisticasPorTipo[tipo] = {
-        total_realizadas: pt.length,
+        total_realizadas: rt.length,
         total_aciertos:   a,
         total_errores:    e,
-        precision:        Number(calcularPrecision(pt).toFixed(2)),
+        precision:        Number(calcularPrecision(rt).toFixed(2)),
         ultima_sesion:    fmt(ultimaSesion),
-        mejor_prueba:     fmt(mejorPrueba),
-        peor_prueba:      fmt(peorPrueba),
+        mejor_reaccion:   fmt(mejorReaccion),
+        peor_reaccion:    fmt(peorReaccion),
       }
     })
 
@@ -171,13 +167,13 @@ export const obtenerResultadosPersonales = async (req, res) => {
       data: {
         rango: { desde: fechaInicio, hasta: fechaFin },
         totales_generales: {
-          total_pruebas:  pruebas.length,
-          total_intentos: totalIntentos,
-          total_aciertos: totalAciertos,
-          total_errores:  totalErrores,
-          precision:      Number(precision.toFixed(2)),
+          total_reacciones: reacciones.length,
+          total_intentos:   totalIntentos,
+          total_aciertos:   totalAciertos,
+          total_errores:    totalErrores,
+          precision:        Number(precision.toFixed(2)),
         },
-        por_tipo_prueba: estadisticasPorTipo,
+        por_tipo_reaccion: estadisticasPorTipo,
       },
     })
   } catch (error) {
@@ -187,8 +183,6 @@ export const obtenerResultadosPersonales = async (req, res) => {
 }
 
 // ─── Obtener ranking general ──────────────────────────────────────────────────
-// Ordena por PRECISIÓN PROMEDIO (Aciertos / (Aciertos + Fallos) × 100)
-// Devuelve TODOS los jugadores (no solo top 5) para poder mostrar cualquier posición
 export const obtenerRankingGeneral = async (req, res) => {
   try {
     const { desde, hasta, periodo = "general", posicion, carrera, limite = 10 } = req.query
@@ -203,8 +197,8 @@ export const obtenerRankingGeneral = async (req, res) => {
       include: [
         { model: Jugador, as: "jugador", where: filtrosJugador, required: true },
         {
-          model: Prueba,
-          as: "pruebas",
+          model: Reaccion,
+          as: "reacciones",
           where: { estado: "finalizada", fecha: { [Op.between]: [fechaInicio, fechaFin] } },
           required: false,
         },
@@ -212,10 +206,9 @@ export const obtenerRankingGeneral = async (req, res) => {
     })
 
     const jugadoresConEstadisticas = cuentas.map((cuenta) =>
-      formatearJugador(cuenta, cuenta.pruebas || [])
+      formatearJugador(cuenta, cuenta.reacciones || [])
     )
 
-    // Ordenar por precisión promedio DESC
     const rankingCompleto = jugadoresConEstadisticas.sort(
       (a, b) => b.totales_generales.precision - a.totales_generales.precision
     )
@@ -226,12 +219,11 @@ export const obtenerRankingGeneral = async (req, res) => {
       success: true,
       data: {
         periodo,
-        rango:          { desde: fechaInicio, hasta: fechaFin },
-        filtros:        { posicion: posicion || "todas", carrera: carrera || "todas" },
+        rango:           { desde: fechaInicio, hasta: fechaFin },
+        filtros:         { posicion: posicion || "todas", carrera: carrera || "todas" },
         total_jugadores: rankingCompleto.length,
-        ranking:        topN,
-        // Mantenemos top_5 por compatibilidad con código existente
-        top_5:          rankingCompleto.slice(0, 5),
+        ranking:         topN,
+        top_5:           rankingCompleto.slice(0, 5),
       },
     })
   } catch (error) {
@@ -256,8 +248,8 @@ export const obtenerPosicionUsuario = async (req, res) => {
       include: [
         { model: Jugador, as: "jugador", where: filtrosJugador, required: true },
         {
-          model: Prueba,
-          as: "pruebas",
+          model: Reaccion,
+          as: "reacciones",
           where: { estado: "finalizada", fecha: { [Op.between]: [fechaInicio, fechaFin] } },
           required: false,
         },
@@ -265,10 +257,9 @@ export const obtenerPosicionUsuario = async (req, res) => {
     })
 
     const jugadoresConEstadisticas = cuentas.map((cuenta) =>
-      formatearJugador(cuenta, cuenta.pruebas || [])
+      formatearJugador(cuenta, cuenta.reacciones || [])
     )
 
-    // Ordenar por precisión DESC
     const rankingCompleto = jugadoresConEstadisticas.sort(
       (a, b) => b.totales_generales.precision - a.totales_generales.precision
     )
@@ -285,7 +276,7 @@ export const obtenerPosicionUsuario = async (req, res) => {
       success: true,
       data: {
         periodo,
-        rango:           { desde: fechaInicio, hasta: fechaFin },
+        rango:            { desde: fechaInicio, hasta: fechaFin },
         posicion_ranking: posicionUsuario + 1,
         total_jugadores:  rankingCompleto.length,
         usuario:          rankingCompleto[posicionUsuario],

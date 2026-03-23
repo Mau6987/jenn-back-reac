@@ -44,10 +44,6 @@ export const Entrenador = sequelize.define(
       unique: true,
       validate: { isEmail: true },
     },
-    imagen: {
-      type: DataTypes.BLOB,
-      allowNull: true,
-    },
     cuentaId: {
       type: DataTypes.INTEGER,
       allowNull: false,

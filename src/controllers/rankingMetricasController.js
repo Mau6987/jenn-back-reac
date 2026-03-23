@@ -3,7 +3,7 @@ import { Op } from "sequelize"
 import { Cuenta } from "../models/Cuenta.js"
 import { Jugador } from "../models/Jugador.js"
 import { Alcance } from "../models/Alcance.js"
-import { Pliometria } from "../models/Pliometria.js"
+import { Salto } from "../models/Salto.js"
 
 const TIPOS_VALIDOS = ["salto simple", "salto conos"]
 
@@ -27,23 +27,23 @@ const calcularRangoFechas = (periodo) => {
   return { fechaInicio, fechaFin: ahora }
 }
 
-const buildWhereAlcance     = (fechaInicio, fechaFin) => {
+const buildWhereAlcance  = (fechaInicio, fechaFin) => {
   const where = {}
   if (fechaInicio) where.fecha = { [Op.between]: [fechaInicio, fechaFin] }
   return where
 }
-const buildWherePliometria  = (fechaInicio, fechaFin) => {
+const buildWhereSalto    = (fechaInicio, fechaFin) => {
   const where = { estado: "finalizada" }
   if (fechaInicio) where.fecha = { [Op.between]: [fechaInicio, fechaFin] }
   return where
 }
-const buildJugadorWhere     = ({ posicion, carrera }) => {
+const buildJugadorWhere  = ({ posicion, carrera }) => {
   const where = {}
   if (posicion) where.posicion_principal = posicion
   if (carrera)  where.carrera = carrera
   return where
 }
-const ordenarPorFechaDesc   = (regs) =>
+const ordenarPorFechaDesc = (regs) =>
   regs.slice().sort((a, b) => new Date(b.fecha) - new Date(a.fecha) || b.id - a.id)
 
 const fmt = (v) => Number((v ?? 0).toFixed(3))
@@ -65,8 +65,7 @@ const buildMetrica = (sorted, mejorReg, peorReg, ultimo, campo) => ({
   incremento_peor:   calcIncremento(sorted, peorReg,  campo),
 })
 
-// ─── CAMBIO 1: enriquecerPlio soporta camelCase y lowercase ──────────────────
-const enriquecerPlio = (r) => {
+const enriquecerSalto = (r) => {
   const raw = r.dataValues ?? r
   const izq = raw.fuerzaizquierda ?? raw.fuerzaIzquierda ?? 0
   const der = raw.fuerzaderecha   ?? raw.fuerzaDerecha   ?? 0
@@ -80,7 +79,6 @@ const mejorPeorPor = (regs, campo) => {
   return { mejor, peor }
 }
 
-// ─── CAMBIO 2: helper que calcula mejor/peor por cada métrica independiente ──
 const buildMetricaIndependiente = (sorted, regs, campo) => {
   const { mejor: mejorReg, peor: peorReg } = mejorPeorPor(regs, campo)
   const ultimo = sorted[0] ?? null
@@ -143,8 +141,8 @@ export const obtenerResultadosPersonalesAlcance = async (req, res) => {
   }
 }
 
-// ─── PLIOMETRÍA - Resultados personales ───────────────────────────────────────
-export const obtenerResultadosPersonalesPliometria = async (req, res) => {
+// ─── SALTO - Resultados personales ───────────────────────────────────────────
+export const obtenerResultadosPersonalesSalto = async (req, res) => {
   try {
     const { cuentaId } = req.params
     const { periodo = "general", tipo } = req.query
@@ -153,32 +151,32 @@ export const obtenerResultadosPersonalesPliometria = async (req, res) => {
     if (tipo && !TIPOS_VALIDOS.includes(tipo))
       return res.status(400).json({ success: false, message: `tipo inválido. Permitidos: ${TIPOS_VALIDOS.join(", ")}` })
 
-    const wherePlio = buildWherePliometria(fechaInicio, fechaFin)
-    if (tipo) wherePlio.tipo = tipo
+    const whereSalto = buildWhereSalto(fechaInicio, fechaFin)
+    if (tipo) whereSalto.tipo = tipo
 
     const cuenta = await Cuenta.findOne({
       where: { id: cuentaId, rol: "jugador", activo: true },
       include: [
-        { model: Jugador,    as: "jugador",     required: true },
-        { model: Pliometria, as: "pliometrias", where: wherePlio, required: false },
+        { model: Jugador, as: "jugador", required: true },
+        { model: Salto,   as: "saltos",  where: whereSalto, required: false },
       ],
     })
     if (!cuenta) return res.status(404).json({ success: false, message: "Usuario no encontrado" })
 
-    const regs   = (cuenta.pliometrias || []).map(enriquecerPlio)
+    const regs   = (cuenta.saltos || []).map(enriquecerSalto)
     const sorted = ordenarPorFechaDesc(regs)
 
     // ── Ranking por mejor altura_promedio ──────────────────────────────────
     const todasCuentas = await Cuenta.findAll({
       where: { rol: "jugador", activo: true },
       include: [
-        { model: Jugador,    as: "jugador",     required: true },
-        { model: Pliometria, as: "pliometrias", where: wherePlio, required: false },
+        { model: Jugador, as: "jugador", required: true },
+        { model: Salto,   as: "saltos",  where: whereSalto, required: false },
       ],
     })
     const itemsRanking = todasCuentas
       .map((c) => {
-        const enr = (c.pliometrias || []).map(enriquecerPlio)
+        const enr = (c.saltos || []).map(enriquecerSalto)
         return {
           cuentaId: c.id,
           mejor_altura: enr.reduce((m, r) => Math.max(m, r.altura_promedio ?? 0), 0),
@@ -187,7 +185,6 @@ export const obtenerResultadosPersonalesPliometria = async (req, res) => {
       .sort((a, b) => b.mejor_altura - a.mejor_altura)
     const posicion = itemsRanking.findIndex((i) => i.cuentaId === Number(cuentaId)) + 1
 
-    // ─── CAMBIO 2 aplicado: cada métrica calcula su propio mejor/peor ─────
     const estadisticas = {
       total_registros: regs.length,
       cantidad_saltos: buildMetricaIndependiente(sorted, regs, "cantidad_saltos"),
@@ -214,8 +211,8 @@ export const obtenerResultadosPersonalesPliometria = async (req, res) => {
       },
     })
   } catch (error) {
-    console.error("Error obtenerResultadosPersonalesPliometria:", error)
-    res.status(500).json({ success: false, message: "Error al obtener resultados de pliometría", error: error.message })
+    console.error("Error obtenerResultadosPersonalesSalto:", error)
+    res.status(500).json({ success: false, message: "Error al obtener resultados de salto", error: error.message })
   }
 }
 
@@ -247,24 +244,24 @@ export const obtenerPosicionUsuarioAlcance = async (req, res) => {
   }
 }
 
-// ─── PLIOMETRÍA - Posición usuario ───────────────────────────────────────────
-export const obtenerPosicionUsuarioPliometria = async (req, res) => {
+// ─── SALTO - Posición usuario ─────────────────────────────────────────────────
+export const obtenerPosicionUsuarioSalto = async (req, res) => {
   try {
     const { cuentaId } = req.params
     const { periodo = "general", posicion, carrera, tipo } = req.query
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
-    const wherePlio = buildWherePliometria(fechaInicio, fechaFin)
-    if (tipo) wherePlio.tipo = tipo
+    const whereSalto = buildWhereSalto(fechaInicio, fechaFin)
+    if (tipo) whereSalto.tipo = tipo
     const cuentas = await Cuenta.findAll({
       where: { rol: "jugador", activo: true },
       include: [
-        { model: Jugador,    as: "jugador",     where: buildJugadorWhere({ posicion, carrera }), required: true },
-        { model: Pliometria, as: "pliometrias", where: wherePlio, required: false },
+        { model: Jugador, as: "jugador", where: buildJugadorWhere({ posicion, carrera }), required: true },
+        { model: Salto,   as: "saltos",  where: whereSalto, required: false },
       ],
     })
     const items = cuentas
       .map((c) => {
-        const enr = (c.pliometrias || []).map(enriquecerPlio)
+        const enr = (c.saltos || []).map(enriquecerSalto)
         return {
           cuentaId: c.id,
           mejor_altura: enr.reduce((m, r) => Math.max(m, r.altura_promedio ?? 0), 0),
@@ -309,8 +306,8 @@ export const obtenerRankingAlcance = async (req, res) => {
   }
 }
 
-// ─── PLIOMETRÍA - Ranking general ─────────────────────────────────────────────
-export const obtenerRankingPliometria = async (req, res) => {
+// ─── SALTO - Ranking general ──────────────────────────────────────────────────
+export const obtenerRankingSalto = async (req, res) => {
   try {
     const { periodo = "general", posicion, carrera, limit = 5, tipo } = req.query
 
@@ -318,19 +315,19 @@ export const obtenerRankingPliometria = async (req, res) => {
       return res.status(400).json({ success: false, message: `tipo inválido. Permitidos: ${TIPOS_VALIDOS.join(", ")}` })
 
     const { fechaInicio, fechaFin } = calcularRangoFechas(periodo)
-    const wherePlio = buildWherePliometria(fechaInicio, fechaFin)
-    if (tipo) wherePlio.tipo = tipo
+    const whereSalto = buildWhereSalto(fechaInicio, fechaFin)
+    if (tipo) whereSalto.tipo = tipo
 
     const cuentas = await Cuenta.findAll({
       where: { rol: "jugador", activo: true },
       include: [
-        { model: Jugador,    as: "jugador",     where: buildJugadorWhere({ posicion, carrera }), required: true },
-        { model: Pliometria, as: "pliometrias", where: wherePlio, required: false },
+        { model: Jugador, as: "jugador", where: buildJugadorWhere({ posicion, carrera }), required: true },
+        { model: Salto,   as: "saltos",  where: whereSalto, required: false },
       ],
     })
     const ranking = cuentas
       .map((c) => {
-        const enr = (c.pliometrias || []).map(enriquecerPlio)
+        const enr = (c.saltos || []).map(enriquecerSalto)
         return {
           cuentaId: c.id,
           jugador: { nombres: c.jugador.nombres, apellidos: c.jugador.apellidos, posicion_principal: c.jugador.posicion_principal },

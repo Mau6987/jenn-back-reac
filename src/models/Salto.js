@@ -1,9 +1,9 @@
-// models/Pliometria.js
+// models/Salto.js
 import { DataTypes } from "sequelize"
 import { sequelize } from "../config/database.js"
 
-export const Pliometria = sequelize.define(
-  "pliometrias",
+export const Salto = sequelize.define(
+  "saltos",
   {
     id: {
       type: DataTypes.INTEGER,
@@ -16,7 +16,7 @@ export const Pliometria = sequelize.define(
       references: { model: "cuentas", key: "id" },
     },
     tipo: {
-      type: DataTypes.ENUM("salto cajon", "salto simple", "salto conos"),
+      type: DataTypes.ENUM("salto simple", "salto conos"),
       allowNull: false,
     },
     tiempo: {
@@ -49,7 +49,6 @@ export const Pliometria = sequelize.define(
       defaultValue: 0,
       validate: { min: 0 },
     },
-    // ── Nuevos campos ──────────────────────────────────────────────
     cantidad_saltos: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -68,7 +67,6 @@ export const Pliometria = sequelize.define(
       defaultValue: 0,
       validate: { min: 0 },
     },
-    // ──────────────────────────────────────────────────────────────
     estado: {
       type: DataTypes.ENUM("pendiente", "en_curso", "finalizada"),
       allowNull: false,
@@ -81,7 +79,7 @@ export const Pliometria = sequelize.define(
     },
   },
   {
-    tableName: "pliometrias",
+    tableName: "saltos",
     timestamps: false,
   },
 )

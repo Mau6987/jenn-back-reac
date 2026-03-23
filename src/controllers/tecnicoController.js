@@ -1,27 +1,4 @@
-import { Buffer } from "buffer"
 import { Tecnico, Cuenta } from "../models/index.js"
-
-const validarImagenBase64 = (imagen) => {
-  if (!imagen) return true
-
-  const base64Pattern = /^data:image\/(png|jpg|jpeg|gif|webp);base64,/
-  if (!base64Pattern.test(imagen)) {
-    return false
-  }
-
-  const sizeInBytes = (imagen.length * 3) / 4
-  const maxSize = 5 * 1024 * 1024 // 5MB
-  if (sizeInBytes > maxSize) {
-    return false
-  }
-
-  return true
-}
-
-const convertirBase64ABuffer = (imagenBase64) => {
-  if (!imagenBase64) return null
-  return Buffer.from(imagenBase64.replace(/^data:image\/\w+;base64,/, ""), "base64")
-}
 
 export const obtenerTecnicos = async (req, res) => {
   try {
@@ -87,15 +64,7 @@ export const obtenerTecnico = async (req, res) => {
 
 export const crearTecnico = async (req, res) => {
   try {
-    const { nombres, apellidos, fecha_nacimiento, correo_institucional, numero_celular, cuentaId, imagen } = req.body
-
-    if (imagen && !validarImagenBase64(imagen)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Formato de imagen inválido. Debe ser una imagen base64 válida (PNG, JPG, JPEG, GIF, WEBP) menor a 5MB",
-      })
-    }
+    const { nombres, apellidos, fecha_nacimiento, correo_institucional, numero_celular, cuentaId } = req.body
 
     const nuevoTecnico = await Tecnico.create({
       nombres,
@@ -103,7 +72,7 @@ export const crearTecnico = async (req, res) => {
       fecha_nacimiento,
       correo_institucional,
       numero_celular,
-      cuentaId
+      cuentaId,
     })
 
     res.status(201).json({
@@ -124,15 +93,6 @@ export const crearTecnico = async (req, res) => {
 export const actualizarTecnico = async (req, res) => {
   try {
     const { id } = req.params
-    const { imagen, ...otros } = req.body
-
-    if (imagen && !validarImagenBase64(imagen)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Formato de imagen inválido. Debe ser una imagen base64 válida (PNG, JPG, JPEG, GIF, WEBP) menor a 5MB",
-      })
-    }
 
     const tecnico = await Tecnico.findOne({
       where: { id },
@@ -152,16 +112,7 @@ export const actualizarTecnico = async (req, res) => {
       })
     }
 
-    const datosActualizacion = {
-      ...otros,
-    }
-
-    // Solo actualizar imagen si se proporciona
-    if (imagen !== undefined) {
-      datosActualizacion.imagen = convertirBase64ABuffer(imagen)
-    }
-
-    await tecnico.update(datosActualizacion)
+    await tecnico.update(req.body)
 
     res.json({
       success: true,

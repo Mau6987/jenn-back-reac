@@ -11,12 +11,11 @@ import jugadoresRoutes from "./routes/jugadores.js"
 import entrenadorRoutes from "./routes/entrenadores.js"
 import tecnicoRoutes from "./routes/tecnicos.js"
 import pusherRoutes from "./routes/pusher.js"
-import pruebaRoutes from "./routes/pruebas.js"
+import reaccionRoutes from "./routes/Reacciones.js"
 import rankingRoutes from "./routes/ranking.js"
 import horarioRoutes from "./routes/horarioRoutes.js"
-import pliometriaRoutes from "./routes/pliometriaRoutes.js"
+import saltoRoutes from "./routes/Saltoroutes.js"
 import alcanceRoutes from "./routes/alcanceRoutes.js"
-// 👇 NUEVO: rutas de métricas de ranking
 import rankingMetricasRoutes from "./routes/rankingMetricasRoutes.js"
 
 // Importar modelos para establecer asociaciones
@@ -31,9 +30,9 @@ const PORT = process.env.PORT || 3000
 app.use(helmet())
 app.use(cors())
 
-// Middlewares de parsing con límite aumentado para imágenes base64
-app.use(express.json({ limit: "10mb" }))
-app.use(express.urlencoded({ limit: "10mb", extended: true }))
+// Middlewares de parsing
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
 
 // Middleware de logging en desarrollo
 if (process.env.NODE_ENV === "development") {
@@ -59,12 +58,11 @@ app.use("/api/jugadores", jugadoresRoutes)
 app.use("/api/entrenadores", entrenadorRoutes)
 app.use("/api/tecnicos", tecnicoRoutes)
 app.use("/api/pusher", pusherRoutes)
-app.use("/api/pruebas", pruebaRoutes)
+app.use("/api/reacciones", reaccionRoutes)
 app.use("/api/ranking", rankingRoutes)
-// 👇 NUEVO: se compone con las rutas existentes bajo /api/ranking
 app.use("/api/ranking", rankingMetricasRoutes)
 app.use("/api/horarios", horarioRoutes)
-app.use("/api/pliometrias", pliometriaRoutes)
+app.use("/api/saltos", saltoRoutes)
 app.use("/api/alcances", alcanceRoutes)
 
 // Middleware de manejo de errores global

@@ -1,9 +1,9 @@
-// models/Prueba.js
+// models/Reaccion.js
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/database.js";
 
-export const Prueba = sequelize.define(
-  "pruebas",
+export const Reaccion = sequelize.define(
+  "reacciones",
   {
     id: {
       type: DataTypes.INTEGER,
@@ -57,7 +57,7 @@ export const Prueba = sequelize.define(
     },
   },
   {
-    tableName: "pruebas",
+    tableName: "reacciones",
     timestamps: false,
   }
 );

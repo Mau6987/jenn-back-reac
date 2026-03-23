@@ -3,10 +3,10 @@ import express from "express"
 import {
   obtenerRankingAlcance,
   obtenerPosicionUsuarioAlcance,
-  obtenerRankingPliometria,
-  obtenerPosicionUsuarioPliometria,
+  obtenerRankingSalto,
+  obtenerPosicionUsuarioSalto,
   obtenerResultadosPersonalesAlcance,
-  obtenerResultadosPersonalesPliometria,
+  obtenerResultadosPersonalesSalto,
 } from "../controllers/rankingMetricasController.js"
 
 const router = express.Router()
@@ -19,19 +19,20 @@ router.get("/alcance", obtenerRankingAlcance)
 // GET /ranking/alcance/posicion/:cuentaId
 // Query: periodo(semanal|mensual|general), posicion, carrera
 router.get("/alcance/posicion/:cuentaId", obtenerPosicionUsuarioAlcance)
+
 // Resultados personales de alcance
 router.get("/alcance/personal/:cuentaId", obtenerResultadosPersonalesAlcance)
-// ========== PLIOMETRÍA ==========
-// GET /ranking/pliometria
+
+// ========== SALTO ==========
+// GET /ranking/salto
 // Query: periodo(semanal|mensual|general), posicion, carrera, limit, tipo
-router.get("/pliometria", obtenerRankingPliometria)
+router.get("/salto", obtenerRankingSalto)
 
-// GET /ranking/pliometria/posicion/:cuentaId
+// GET /ranking/salto/posicion/:cuentaId
 // Query: periodo(semanal|mensual|general), posicion, carrera, tipo
-router.get("/pliometria/posicion/:cuentaId", obtenerPosicionUsuarioPliometria)
+router.get("/salto/posicion/:cuentaId", obtenerPosicionUsuarioSalto)
 
-
-// Resultados personales de pliometría
-router.get("/pliometria/personal/:cuentaId", obtenerResultadosPersonalesPliometria)
+// Resultados personales de salto
+router.get("/salto/personal/:cuentaId", obtenerResultadosPersonalesSalto)
 
 export default router

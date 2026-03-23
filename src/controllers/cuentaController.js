@@ -1,22 +1,5 @@
-import { Buffer } from "buffer"
 import { Cuenta, Jugador, Entrenador, Tecnico } from "../models/index.js"
 import { sequelize } from "../config/database.js"
-
-const validarImagenBase64 = (imagen) => {
-  if (!imagen) return true
-
-  const base64Pattern = /^data:image\/(png|jpg|jpeg|gif|webp);base64,/
-  if (!base64Pattern.test(imagen)) return false
-
-  const sizeInBytes = (imagen.length * 3) / 4
-  const maxSize = 5 * 1024 * 1024 // 5MB
-  return sizeInBytes <= maxSize
-}
-
-const convertirBase64ABuffer = (imagenBase64) => {
-  if (!imagenBase64) return null
-  return Buffer.from(imagenBase64.replace(/^data:image\/\w+;base64,/, ""), "base64")
-}
 
 const sanitizarDatosJugador = (datos) => {
   const resultado = { ...datos }
@@ -48,9 +31,9 @@ export const obtenerCuentas = async (req, res) => {
     const cuentas = await Cuenta.findAll({
       where: { activo: true },
       include: [
-        { model: Jugador, as: "jugador" },
+        { model: Jugador,    as: "jugador" },
         { model: Entrenador, as: "entrenador" },
-        { model: Tecnico, as: "tecnico" },
+        { model: Tecnico,    as: "tecnico" },
       ],
     })
 
@@ -73,9 +56,9 @@ export const obtenerCuenta = async (req, res) => {
     const cuenta = await Cuenta.findOne({
       where: { id, activo: true },
       include: [
-        { model: Jugador, as: "jugador" },
+        { model: Jugador,    as: "jugador" },
         { model: Entrenador, as: "entrenador" },
-        { model: Tecnico, as: "tecnico" },
+        { model: Tecnico,    as: "tecnico" },
       ],
     })
 
@@ -97,44 +80,32 @@ export const crearCuenta = async (req, res) => {
   const transaction = await sequelize.transaction()
 
   try {
-    const { usuario, contraseña, rol, imagen, ...datosPersonales } = req.body
+    const { usuario, contraseña, rol, path, ...datosPersonales } = req.body
 
-    if (imagen && !validarImagenBase64(imagen)) {
-      await transaction.rollback()
-      return res.status(400).json({
-        success: false,
-        message: "Formato de imagen inválido. Debe ser base64 válida (PNG, JPG, JPEG, GIF, WEBP) menor a 5MB",
-      })
-    }
-
-    const cuenta = await Cuenta.create({ usuario, contraseña, rol }, { transaction })
+    // path es la ruta de la imagen en el servidor (ej: /uploads/imagen.jpg)
+    const cuenta = await Cuenta.create({ usuario, contraseña, rol, path: path || null }, { transaction })
 
     let registro
     switch (rol) {
       case "jugador":
         registro = await Jugador.create(
-          {
-            ...sanitizarDatosJugador(datosPersonales),
-            cuentaId: cuenta.id,
-            imagen: convertirBase64ABuffer(imagen),
-          },
+          { ...sanitizarDatosJugador(datosPersonales), cuentaId: cuenta.id },
           { transaction },
         )
         break
 
       case "entrenador":
         registro = await Entrenador.create(
-          {
-            ...datosPersonales,
-            cuentaId: cuenta.id,
-            imagen: convertirBase64ABuffer(imagen),
-          },
+          { ...datosPersonales, cuentaId: cuenta.id },
           { transaction },
         )
         break
 
       case "tecnico":
-        registro = await Tecnico.create({ ...datosPersonales, cuentaId: cuenta.id }, { transaction })
+        registro = await Tecnico.create(
+          { ...datosPersonales, cuentaId: cuenta.id },
+          { transaction },
+        )
         break
     }
 
@@ -162,15 +133,7 @@ export const actualizarCuenta = async (req, res) => {
 
   try {
     const { id } = req.params
-    const { usuario, contraseña, rol, imagen, ...datosPersonales } = req.body
-
-    if (imagen && !validarImagenBase64(imagen)) {
-      await transaction.rollback()
-      return res.status(400).json({
-        success: false,
-        message: "Formato de imagen inválido. Debe ser base64 válida (PNG, JPG, JPEG, GIF, WEBP) menor a 5MB",
-      })
-    }
+    const { usuario, contraseña, rol, path, ...datosPersonales } = req.body
 
     const cuenta = await Cuenta.findByPk(id)
     if (!cuenta || !cuenta.activo) {
@@ -180,9 +143,10 @@ export const actualizarCuenta = async (req, res) => {
 
     await cuenta.update(
       {
-        usuario: usuario || cuenta.usuario,
+        usuario:    usuario    || cuenta.usuario,
         contraseña: contraseña || cuenta.contraseña,
-        rol: rol || cuenta.rol,
+        rol:        rol        || cuenta.rol,
+        path:       path !== undefined ? path : cuenta.path,
       },
       { transaction },
     )
@@ -195,12 +159,6 @@ export const actualizarCuenta = async (req, res) => {
         cuenta.rol === "jugador"
           ? sanitizarDatosJugador(datosPersonales)
           : { ...datosPersonales }
-
-      if (cuenta.rol === "jugador" && imagen !== undefined) {
-        dataToUpdate.imagen = convertirBase64ABuffer(imagen)
-      } else if (cuenta.rol === "entrenador" && imagen !== undefined) {
-        dataToUpdate.imagen = convertirBase64ABuffer(imagen)
-      }
 
       await Modelo.update(dataToUpdate, { where: { cuentaId: cuenta.id }, transaction })
     }
@@ -245,9 +203,9 @@ export const obtenerPerfil = async (req, res) => {
       where: { id, activo: true },
       attributes: { exclude: ["contraseña"] },
       include: [
-        { model: Jugador, as: "jugador" },
+        { model: Jugador,    as: "jugador" },
         { model: Entrenador, as: "entrenador" },
-        { model: Tecnico, as: "tecnico" },
+        { model: Tecnico,    as: "tecnico" },
       ],
     })
 
@@ -270,15 +228,7 @@ export const actualizarPerfil = async (req, res) => {
 
   try {
     const { id } = req.params
-    const { usuario, imagen, ...datosPersonales } = req.body
-
-    if (imagen && !validarImagenBase64(imagen)) {
-      await transaction.rollback()
-      return res.status(400).json({
-        success: false,
-        message: "Formato de imagen inválido. Debe ser base64 válida (PNG, JPG, JPEG, GIF, WEBP) menor a 5MB",
-      })
-    }
+    const { usuario, path, ...datosPersonales } = req.body
 
     const cuenta = await Cuenta.findOne({ where: { id, activo: true }, transaction })
     if (!cuenta) {
@@ -286,7 +236,13 @@ export const actualizarPerfil = async (req, res) => {
       return res.status(404).json({ success: false, message: "Cuenta no encontrada" })
     }
 
-    if (usuario) await cuenta.update({ usuario }, { transaction })
+    const datosActualizacionCuenta = {}
+    if (usuario) datosActualizacionCuenta.usuario = usuario
+    if (path !== undefined) datosActualizacionCuenta.path = path
+
+    if (Object.keys(datosActualizacionCuenta).length > 0) {
+      await cuenta.update(datosActualizacionCuenta, { transaction })
+    }
 
     const modeloMap = { jugador: Jugador, entrenador: Entrenador, tecnico: Tecnico }
     const Modelo = modeloMap[cuenta.rol]
@@ -297,12 +253,6 @@ export const actualizarPerfil = async (req, res) => {
           ? sanitizarDatosJugador(datosPersonales)
           : { ...datosPersonales }
 
-      if (cuenta.rol === "jugador" && imagen !== undefined) {
-        dataToUpdate.imagen = convertirBase64ABuffer(imagen)
-      } else if (cuenta.rol === "entrenador" && imagen !== undefined) {
-        dataToUpdate.imagen = convertirBase64ABuffer(imagen)
-      }
-
       await Modelo.update(dataToUpdate, { where: { cuentaId: cuenta.id }, transaction })
     }
 
@@ -312,9 +262,9 @@ export const actualizarPerfil = async (req, res) => {
       where: { id: cuenta.id, activo: true },
       attributes: { exclude: ["contraseña"] },
       include: [
-        { model: Jugador, as: "jugador" },
+        { model: Jugador,    as: "jugador" },
         { model: Entrenador, as: "entrenador" },
-        { model: Tecnico, as: "tecnico" },
+        { model: Tecnico,    as: "tecnico" },
       ],
     })
 

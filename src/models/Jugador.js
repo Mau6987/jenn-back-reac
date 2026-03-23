@@ -63,10 +63,6 @@ export const Jugador = sequelize.define(
       allowNull: false,
       validate: { len: [8, 15], isNumeric: true },
     },
-    imagen: {
-      type: DataTypes.BLOB,
-      allowNull: true,
-    },
     cuentaId: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -78,14 +74,3 @@ export const Jugador = sequelize.define(
     timestamps: false,
   },
 )
-
-Jugador.prototype.toJSON = function () {
-  const values = { ...this.get() }
-
-  // Convertir imagen principal a base64 si existe
-  if (values.imagen && Buffer.isBuffer(values.imagen)) {
-    values.imagen = `data:image/jpeg;base64,${values.imagen.toString("base64")}`
-  }
-
-  return values
-}

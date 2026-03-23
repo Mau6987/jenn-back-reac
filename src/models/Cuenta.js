@@ -34,6 +34,10 @@ export const Cuenta = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: true,
     },
+   path: {
+    type: DataTypes.TEXT, // ✅ cambia de STRING(500) a TEXT
+    allowNull: true,
+  },
   },
   {
     tableName: "cuentas",

@@ -37,6 +37,7 @@ app.use(express.urlencoded({ extended: true }))
 
 // Servir imágenes estáticas
 app.use("/uploads", express.static(path.join(__dirname, "uploads")))
+console.log("📁 Sirviendo uploads desde:", path.join(__dirname, "uploads"))
 
 if (process.env.NODE_ENV === "development") {
   app.use((req, res, next) => {

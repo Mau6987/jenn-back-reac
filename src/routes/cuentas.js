@@ -20,6 +20,6 @@ router.post("/", validarCuenta, crearCuenta)
 router.put("/:id", validarId, actualizarCuenta)
 router.delete("/:id", validarId, eliminarCuenta)
 router.get("/perfil/:id", validarId, obtenerPerfil)
-router.put("/perfil/:id", validarId, actualizarPerfil)   // 👈 nueva ruta
+router.put("/perfil/:id", validarId, actualizarPerfil)   
 router.put("/perfil/:id/contrasena", actualizarContrasena)
 export default router

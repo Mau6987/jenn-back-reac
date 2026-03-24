@@ -20,8 +20,8 @@ router.get("/alcance", obtenerRankingAlcance)
 // Query: periodo(semanal|mensual|general), posicion, carrera
 router.get("/alcance/posicion/:cuentaId", obtenerPosicionUsuarioAlcance)
 
-// Resultados personales de alcance
-router.get("/alcance/personal/:cuentaId", obtenerResultadosPersonalesAlcance)
+// Resultados personales de alcance - RUTA ACTUALIZADA
+router.get("/alcance/resultados-personales/:cuentaId", obtenerResultadosPersonalesAlcance)
 
 // ========== SALTO ==========
 // GET /ranking/salto
@@ -32,7 +32,7 @@ router.get("/salto", obtenerRankingSalto)
 // Query: periodo(semanal|mensual|general), posicion, carrera, tipo
 router.get("/salto/posicion/:cuentaId", obtenerPosicionUsuarioSalto)
 
-// Resultados personales de salto
-router.get("/salto/personal/:cuentaId", obtenerResultadosPersonalesSalto)
+// Resultados personales de salto - RUTA ACTUALIZADA
+router.get("/salto/resultados-personales/:cuentaId", obtenerResultadosPersonalesSalto)
 
 export default router

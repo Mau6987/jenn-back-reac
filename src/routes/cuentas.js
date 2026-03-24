@@ -6,7 +6,8 @@ import {
   actualizarCuenta, 
   eliminarCuenta, 
   obtenerPerfil, 
-  actualizarPerfil   // 👈 importar el nuevo controlador
+  actualizarPerfil,
+  actualizarContrasena  // 👈 importar el nuevo controlador
 } from "../controllers/cuentaController.js"
 import { validarCuenta, validarId } from "../middlewares/validations.js"
 
@@ -20,5 +21,5 @@ router.put("/:id", validarId, actualizarCuenta)
 router.delete("/:id", validarId, eliminarCuenta)
 router.get("/perfil/:id", validarId, obtenerPerfil)
 router.put("/perfil/:id", validarId, actualizarPerfil)   // 👈 nueva ruta
-
+router.put("/perfil/:id/contrasena", actualizarContrasena)
 export default router

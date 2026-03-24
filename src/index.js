@@ -63,7 +63,7 @@ app.use("/api/horarios", horarioRoutes)
 app.use("/api/saltos", saltoRoutes)
 app.use("/api/alcances", alcanceRoutes)
 app.use("/api/upload", uploadRoutes)
-app.use("/api/graficos", uploadRoutes)
+app.use("/api/graficos", graficosRoutes)
 
 app.use((err, req, res, next) => {
   console.error("Error:", err)

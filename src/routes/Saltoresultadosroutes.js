@@ -1,7 +1,7 @@
 // routes/saltoResultadosRoutes.js
 // Montar en app.js:  app.use("/api/saltos/resultados", saltoResultadosRouter)
 import { Router } from "express"
-import { verificarToken } from "../middleware/auth.js"   // ajusta el path a tu proyecto
+
 import {
   obtenerResultadosSaltoPersonal,
   obtenerSesionesSalto,

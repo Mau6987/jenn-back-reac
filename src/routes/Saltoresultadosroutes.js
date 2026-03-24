@@ -12,7 +12,7 @@ import {
 const router = Router()
 
 // Todos los endpoints requieren autenticación
-router.use(verificarToken)
+
 
 // ── Personal ────────────────────────────────────────────────────────────────
 // GET /api/saltos/resultados/personal/:cuentaId

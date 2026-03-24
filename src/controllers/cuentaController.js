@@ -1,5 +1,6 @@
 import { Cuenta, Jugador, Entrenador, Tecnico } from "../models/index.js"
 import { sequelize } from "../config/database.js"
+import bcrypt from "bcrypt"
 
 const sanitizarDatosJugador = (datos) => {
   const resultado = { ...datos }
@@ -141,15 +142,18 @@ export const actualizarCuenta = async (req, res) => {
       return res.status(404).json({ success: false, message: "Cuenta no encontrada" })
     }
 
-    await cuenta.update(
-      {
-        usuario:    usuario    || cuenta.usuario,
-        contraseña: contraseña || cuenta.contraseña,
-        rol:        rol        || cuenta.rol,
-        path:       path !== undefined ? path : cuenta.path,
-      },
-      { transaction },
-    )
+    const datosActualizacionCuenta = {}
+    if (usuario !== undefined) datosActualizacionCuenta.usuario = usuario
+    if (rol !== undefined) datosActualizacionCuenta.rol = rol
+    if (path !== undefined) datosActualizacionCuenta.path = path
+    if (contraseña !== undefined && contraseña !== "") {
+      const rounds = parseInt(process.env.BCRYPT_ROUNDS) || 12
+      datosActualizacionCuenta.contraseña = await bcrypt.hash(contraseña, rounds)
+    }
+
+    if (Object.keys(datosActualizacionCuenta).length > 0) {
+      await cuenta.update(datosActualizacionCuenta, { transaction })
+    }
 
     const modeloMap = { jugador: Jugador, entrenador: Entrenador, tecnico: Tecnico }
     const Modelo = modeloMap[cuenta.rol]
@@ -228,7 +232,7 @@ export const actualizarPerfil = async (req, res) => {
 
   try {
     const { id } = req.params
-    const { usuario, path, ...datosPersonales } = req.body
+    const { usuario, contraseña, path, ...datosPersonales } = req.body
 
     const cuenta = await Cuenta.findOne({ where: { id, activo: true }, transaction })
     if (!cuenta) {
@@ -236,14 +240,20 @@ export const actualizarPerfil = async (req, res) => {
       return res.status(404).json({ success: false, message: "Cuenta no encontrada" })
     }
 
+    // Actualizar campos de la cuenta
     const datosActualizacionCuenta = {}
-    if (usuario) datosActualizacionCuenta.usuario = usuario
+    if (usuario !== undefined) datosActualizacionCuenta.usuario = usuario
     if (path !== undefined) datosActualizacionCuenta.path = path
+    if (contraseña !== undefined && contraseña !== "") {
+      const rounds = parseInt(process.env.BCRYPT_ROUNDS) || 12
+      datosActualizacionCuenta.contraseña = await bcrypt.hash(contraseña, rounds)
+    }
 
     if (Object.keys(datosActualizacionCuenta).length > 0) {
       await cuenta.update(datosActualizacionCuenta, { transaction })
     }
 
+    // Actualizar datos específicos del rol (nombres, apellidos, etc.)
     const modeloMap = { jugador: Jugador, entrenador: Entrenador, tecnico: Tecnico }
     const Modelo = modeloMap[cuenta.rol]
 
@@ -276,6 +286,49 @@ export const actualizarPerfil = async (req, res) => {
   } catch (error) {
     await transaction.rollback()
     console.error("Error al actualizar perfil:", error)
+    res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
+      error: error.message,
+    })
+  }
+}
+
+// ========================= ACTUALIZAR CONTRASEÑA =========================
+export const actualizarContrasena = async (req, res) => {
+  const transaction = await sequelize.transaction()
+
+  try {
+    const { id } = req.params
+    const { contraseñaActual, contraseñaNueva } = req.body
+
+    const cuenta = await Cuenta.findOne({ where: { id, activo: true }, transaction })
+    if (!cuenta) {
+      await transaction.rollback()
+      return res.status(404).json({ success: false, message: "Cuenta no encontrada" })
+    }
+
+    // Verificar contraseña actual
+    const esValida = await bcrypt.compare(contraseñaActual, cuenta.contraseña)
+    if (!esValida) {
+      await transaction.rollback()
+      return res.status(401).json({ success: false, message: "Contraseña actual incorrecta" })
+    }
+
+    // Actualizar a nueva contraseña
+    const rounds = parseInt(process.env.BCRYPT_ROUNDS) || 12
+    const nuevaContrasenaHash = await bcrypt.hash(contraseñaNueva, rounds)
+    await cuenta.update({ contraseña: nuevaContrasenaHash }, { transaction })
+
+    await transaction.commit()
+
+    res.json({
+      success: true,
+      message: "Contraseña actualizada exitosamente",
+    })
+  } catch (error) {
+    await transaction.rollback()
+    console.error("Error al actualizar contraseña:", error)
     res.status(500).json({
       success: false,
       message: "Error interno del servidor",

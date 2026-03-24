@@ -24,6 +24,7 @@ import rankingMetricasRoutes from "./routes/rankingMetricasRoutes.js"
 import uploadRoutes from "./routes/Uploadroutes.js"
 import graficosRoutes from "./routes/Graficosroutes.js"
 import panelRoutes from "./routes/Paneljugadoraroutes.js"
+import resultadosRoutes from "./routes/Resultados.js"
 import "./models/index.js"
 
 dotenv.config()
@@ -66,7 +67,7 @@ app.use("/api/alcances", alcanceRoutes)
 app.use("/api/upload", uploadRoutes)
 app.use("/api/graficos", graficosRoutes)
 app.use("/api/panel", panelRoutes)
-
+app.use("/api/resultados", resultadosRoutes)
 app.use((err, req, res, next) => {
   console.error("Error:", err)
   res.status(500).json({

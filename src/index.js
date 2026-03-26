@@ -26,6 +26,7 @@ import graficosRoutes from "./routes/Graficosroutes.js"
 import panelRoutes from "./routes/Paneljugadoraroutes.js"
 import resultadosRoutes from "./routes/Resultados.js"
 import resultadosSaltosRoutes from "./routes/Saltoresultadosroutes.js"
+import healthRoutes from "./routes/healthroutes.js"
 import "./models/index.js"
 
 dotenv.config()
@@ -70,7 +71,7 @@ app.use("/api/graficos", graficosRoutes)
 app.use("/api/panel", panelRoutes)
 app.use("/api/resultados", resultadosRoutes)
 app.use("/api/saltos/resultados", resultadosSaltosRoutes)
-
+app.use("/api/health", healthRoutes)
 app.use((err, req, res, next) => {
   console.error("Error:", err)
   res.status(500).json({

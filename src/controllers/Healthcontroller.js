@@ -1,4 +1,4 @@
-// controllers/healthController.js
+/ controllers/healthController.js
 import { sequelize } from "../config/database.js"
 
 // ─── Verificar conexión con el Backend (API) ──────────────────────────────────
